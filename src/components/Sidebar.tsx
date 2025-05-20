@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar";
-import { Database, Search, Upload, Download, Check, Edit, FileText } from "lucide-react";
+import { Database, Search, Upload, Download, Check, Edit, FileText, FileDown } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 interface SidebarProps {
@@ -46,6 +46,14 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: SidebarProps) {
       title: "Download",
       icon: Download,
       onClick: onDownloadClick,
+      disabled: false
+    },
+    {
+      title: "Download Template",
+      icon: FileDown,
+      onClick: () => {
+        window.open('/sample_mapping_template.csv', '_blank');
+      },
       disabled: false
     },
     {

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
@@ -133,16 +132,24 @@ const Mapping = () => {
     }, 1000);
   };
 
-  const handleFileUpload = (file: File) => {
-    // In a real app, you would parse the file here
-    // For demo purposes, we'll just acknowledge the upload
+  const handleFileUpload = (file: File, importedMappingFile?: MappingFile) => {
+    // If we have parsed mapping data from CSV
+    if (importedMappingFile) {
+      setMappingFile(importedMappingFile);
+      toast({
+        title: "Mapping file imported",
+        description: `${importedMappingFile.rows.length} mappings loaded from CSV`,
+      });
+      return;
+    }
     
+    // For other file types, show acknowledgment for demo
     toast({
       title: "File uploaded",
       description: `${file.name} has been processed`,
     });
     
-    // Simulate adding new mappings
+    // Simulate adding new mappings (keeping this for non-CSV file types)
     const newRows = [
       ...mappingFile.rows,
       ...Array(5).fill(null).map((_, index) => ({
