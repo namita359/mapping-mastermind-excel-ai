@@ -94,7 +94,7 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: SidebarProps) {
           <SidebarGroupContent>
             <SidebarMenu>
               {actionItems.map((item) => (
-                <SidebarMenuItem key={item.title} disabled={item.disabled}>
+                <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton onClick={item.onClick} disabled={item.disabled}>
                     <item.icon className="h-5 w-5" />
                     <span>{item.title}</span>
