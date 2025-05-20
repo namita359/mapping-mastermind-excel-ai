@@ -14,11 +14,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Check, Edit, Download, FileDown, FileUp } from "lucide-react";
+import { Check, Edit, Download, FileDown, FileUp, Filter, FilterX, SortAsc, SortDesc } from "lucide-react";
 import { MappingRow, MappingStatus } from "../lib/types";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface MappingTableProps {
   rows: MappingRow[];
@@ -26,8 +29,22 @@ interface MappingTableProps {
   onStatusChange: (rowId: string, status: MappingStatus) => void;
 }
 
+type FilterConfig = {
+  column: string;
+  value: string;
+  operator: "contains" | "equals" | "startsWith" | "endsWith";
+};
+
+type SortConfig = {
+  column: string;
+  direction: "asc" | "desc";
+};
+
 const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) => {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterConfig[]>([]);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   const getStatusColor = (status: MappingStatus) => {
     switch (status) {
@@ -47,91 +64,467 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
     onRowSelect(row);
   };
 
+  const applyFilter = (filterConfig: FilterConfig) => {
+    setFilters(prev => {
+      // Remove existing filters for the same column
+      const filtered = prev.filter(f => f.column !== filterConfig.column);
+      return [...filtered, filterConfig];
+    });
+    setActiveFilter(null);
+  };
+
+  const clearFilter = (column: string) => {
+    setFilters(prev => prev.filter(f => f.column !== column));
+  };
+
+  const clearAllFilters = () => {
+    setFilters([]);
+  };
+
+  const applySort = (column: string) => {
+    setSortConfig(prev => {
+      if (prev && prev.column === column) {
+        // Toggle direction if clicking the same column
+        return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      // Default to ascending for new sort column
+      return { column, direction: 'asc' };
+    });
+  };
+
+  const clearSort = () => {
+    setSortConfig(null);
+  };
+
+  // Apply filters to rows
+  const filteredRows = rows.filter(row => {
+    return filters.every(filter => {
+      let value: string;
+
+      // Extract the value based on the column
+      switch (filter.column) {
+        case "sourceColumn":
+          value = row.sourceColumn.name;
+          break;
+        case "sourceDataType":
+          value = row.sourceColumn.dataType;
+          break;
+        case "targetColumn":
+          value = row.targetColumn.name;
+          break;
+        case "targetDataType":
+          value = row.targetColumn.dataType;
+          break;
+        case "transformation":
+          value = row.transformation || "Direct Copy";
+          break;
+        case "status":
+          value = row.status;
+          break;
+        default:
+          value = "";
+      }
+
+      value = value.toLowerCase();
+      const filterValue = filter.value.toLowerCase();
+
+      switch (filter.operator) {
+        case "contains":
+          return value.includes(filterValue);
+        case "equals":
+          return value === filterValue;
+        case "startsWith":
+          return value.startsWith(filterValue);
+        case "endsWith":
+          return value.endsWith(filterValue);
+        default:
+          return true;
+      }
+    });
+  });
+
+  // Apply sorting to filtered rows
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    if (!sortConfig) return 0;
+
+    let valueA: string;
+    let valueB: string;
+
+    // Extract values based on the column
+    switch (sortConfig.column) {
+      case "sourceColumn":
+        valueA = a.sourceColumn.name;
+        valueB = b.sourceColumn.name;
+        break;
+      case "sourceDataType":
+        valueA = a.sourceColumn.dataType;
+        valueB = b.sourceColumn.dataType;
+        break;
+      case "targetColumn":
+        valueA = a.targetColumn.name;
+        valueB = b.targetColumn.name;
+        break;
+      case "targetDataType":
+        valueA = a.targetColumn.dataType;
+        valueB = b.targetColumn.dataType;
+        break;
+      case "transformation":
+        valueA = a.transformation || "Direct Copy";
+        valueB = b.transformation || "Direct Copy";
+        break;
+      case "status":
+        valueA = a.status;
+        valueB = b.status;
+        break;
+      default:
+        valueA = "";
+        valueB = "";
+    }
+
+    if (sortConfig.direction === 'asc') {
+      return valueA.localeCompare(valueB);
+    } else {
+      return valueB.localeCompare(valueA);
+    }
+  });
+
+  const displayedRows = sortedRows;
+
+  // Filter UI components
+  const FilterMenu = ({ column }: { column: string }) => {
+    const [filterValue, setFilterValue] = useState("");
+    const [filterOperator, setFilterOperator] = useState<FilterConfig["operator"]>("contains");
+    
+    const activeColumnFilter = filters.find(f => f.column === column);
+    const isFiltered = Boolean(activeColumnFilter);
+
+    return (
+      <Popover open={activeFilter === column} onOpenChange={(open) => {
+        if (open) {
+          setActiveFilter(column);
+          // Set initial values from existing filter if any
+          if (activeColumnFilter) {
+            setFilterValue(activeColumnFilter.value);
+            setFilterOperator(activeColumnFilter.operator);
+          }
+        } else {
+          setActiveFilter(null);
+        }
+      }}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            className={cn(
+              "h-8 w-8 p-0 ml-2",
+              isFiltered ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            {isFiltered ? <FilterX className="h-4 w-4" /> : <Filter className="h-4 w-4" />}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80" align="start">
+          <div className="space-y-4">
+            <div className="font-medium">Filter {column}</div>
+            
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <select 
+                  value={filterOperator} 
+                  onChange={(e) => setFilterOperator(e.target.value as FilterConfig["operator"])}
+                  className="p-2 text-sm border rounded-md"
+                >
+                  <option value="contains">Contains</option>
+                  <option value="equals">Equals</option>
+                  <option value="startsWith">Starts with</option>
+                  <option value="endsWith">Ends with</option>
+                </select>
+                
+                <Input 
+                  type="text" 
+                  placeholder="Filter value..."
+                  value={filterValue}
+                  onChange={(e) => setFilterValue(e.target.value)}
+                  className="flex-1"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-between">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  clearFilter(column);
+                  setActiveFilter(null);
+                }}
+              >
+                Clear
+              </Button>
+              <Button 
+                onClick={() => applyFilter({ 
+                  column, 
+                  value: filterValue, 
+                  operator: filterOperator 
+                })}
+              >
+                Apply Filter
+              </Button>
+            </div>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
-    <div className="rounded-md border bg-white overflow-hidden">
-      <Table>
-        <TableHeader className="bg-gray-50">
-          <TableRow>
-            <TableHead className="w-[50px]">#</TableHead>
-            <TableHead>Source Column</TableHead>
-            <TableHead>Source Data Type</TableHead>
-            <TableHead>Target Column</TableHead>
-            <TableHead>Target Data Type</TableHead>
-            <TableHead>Transformation</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, index) => (
-            <TableRow 
-              key={row.id} 
-              onClick={() => handleRowClick(row)}
-              className={cn(
-                "cursor-pointer hover:bg-gray-50",
-                selectedRowId === row.id ? "bg-blue-50" : ""
-              )}
+    <div className="space-y-2">
+      {filters.length > 0 && (
+        <div className="flex gap-2 items-center flex-wrap mb-2">
+          <span className="text-sm font-medium">Filters:</span>
+          {filters.map((filter, index) => (
+            <Badge 
+              key={index} 
+              className="flex items-center gap-1"
+              variant="outline"
             >
-              <TableCell>{index + 1}</TableCell>
-              <TableCell className="font-medium">
-                {row.sourceColumn.name}
-                {row.sourceColumn.isPrimaryKey && (
-                  <Badge variant="outline" className="ml-2">PK</Badge>
-                )}
-              </TableCell>
-              <TableCell>{row.sourceColumn.dataType}</TableCell>
-              <TableCell className="font-medium">
-                {row.targetColumn.name}
-                {row.targetColumn.isPrimaryKey && (
-                  <Badge variant="outline" className="ml-2">PK</Badge>
-                )}
-              </TableCell>
-              <TableCell>{row.targetColumn.dataType}</TableCell>
-              <TableCell className="max-w-[200px] truncate">
-                {row.transformation || "Direct Copy"}
-              </TableCell>
-              <TableCell>
-                <Badge className={getStatusColor(row.status)}>
-                  {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      onStatusChange(row.id, 'approved');
-                    }}>
-                      <Check className="mr-2 h-4 w-4" />
-                      <span>Approve</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      onStatusChange(row.id, 'rejected');
-                    }}>
-                      <FileDown className="mr-2 h-4 w-4" />
-                      <span>Reject</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={(e) => {
-                      e.stopPropagation();
-                      onStatusChange(row.id, 'pending');
-                    }}>
-                      <FileUp className="mr-2 h-4 w-4" />
-                      <span>Mark as Pending</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
+              {filter.column} {filter.operator} &quot;{filter.value}&quot;
+              <button 
+                className="ml-1 text-xs hover:text-destructive" 
+                onClick={() => clearFilter(filter.column)}
+              >
+                ✕
+              </button>
+            </Badge>
           ))}
-        </TableBody>
-      </Table>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={clearAllFilters}
+            className="text-muted-foreground text-xs"
+          >
+            Clear All
+          </Button>
+        </div>
+      )}
+
+      <div className="rounded-md border bg-white overflow-hidden">
+        <Table>
+          <TableHeader className="bg-gray-50">
+            <TableRow>
+              <TableHead className="w-[50px]">#</TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Source Column</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "sourceColumn" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("sourceColumn")}
+                    >
+                      {sortConfig?.column === "sourceColumn" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="sourceColumn" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Source Data Type</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "sourceDataType" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("sourceDataType")}
+                    >
+                      {sortConfig?.column === "sourceDataType" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="sourceDataType" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Target Column</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "targetColumn" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("targetColumn")}
+                    >
+                      {sortConfig?.column === "targetColumn" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="targetColumn" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Target Data Type</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "targetDataType" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("targetDataType")}
+                    >
+                      {sortConfig?.column === "targetDataType" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="targetDataType" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Transformation</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "transformation" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("transformation")}
+                    >
+                      {sortConfig?.column === "transformation" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="transformation" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Status</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "status" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("status")}
+                    >
+                      {sortConfig?.column === "status" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="status" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayedRows.map((row, index) => (
+              <TableRow 
+                key={row.id} 
+                onClick={() => handleRowClick(row)}
+                className={cn(
+                  "cursor-pointer hover:bg-gray-50",
+                  selectedRowId === row.id ? "bg-blue-50" : ""
+                )}
+              >
+                <TableCell>{index + 1}</TableCell>
+                <TableCell className="font-medium">
+                  {row.sourceColumn.name}
+                  {row.sourceColumn.isPrimaryKey && (
+                    <Badge variant="outline" className="ml-2">PK</Badge>
+                  )}
+                </TableCell>
+                <TableCell>{row.sourceColumn.dataType}</TableCell>
+                <TableCell className="font-medium">
+                  {row.targetColumn.name}
+                  {row.targetColumn.isPrimaryKey && (
+                    <Badge variant="outline" className="ml-2">PK</Badge>
+                  )}
+                </TableCell>
+                <TableCell>{row.targetColumn.dataType}</TableCell>
+                <TableCell className="max-w-[200px] truncate">
+                  {row.transformation || "Direct Copy"}
+                </TableCell>
+                <TableCell>
+                  <Badge className={getStatusColor(row.status)}>
+                    {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        onStatusChange(row.id, 'approved');
+                      }}>
+                        <Check className="mr-2 h-4 w-4" />
+                        <span>Approve</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        onStatusChange(row.id, 'rejected');
+                      }}>
+                        <FileDown className="mr-2 h-4 w-4" />
+                        <span>Reject</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        onStatusChange(row.id, 'pending');
+                      }}>
+                        <FileUp className="mr-2 h-4 w-4" />
+                        <span>Mark as Pending</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+            {displayedRows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  No records found. Try adjusting your filters.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
