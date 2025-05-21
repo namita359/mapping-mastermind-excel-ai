@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
@@ -11,11 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
-import { mockMappingFile } from "@/lib/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { createEmptyMappingFile } from "@/lib/fileUtils";
 
 const Mapping = () => {
-  const [mappingFile, setMappingFile] = useState<MappingFile>(mockMappingFile);
+  const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
   const [selectedRow, setSelectedRow] = useState<MappingRow | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
@@ -143,38 +144,9 @@ const Mapping = () => {
       return;
     }
     
-    // For other file types, show acknowledgment for demo
     toast({
       title: "File uploaded",
       description: `${file.name} has been processed`,
-    });
-    
-    // Simulate adding new mappings (keeping this for non-CSV file types)
-    const newRows = [
-      ...mappingFile.rows,
-      ...Array(5).fill(null).map((_, index) => ({
-        id: `new-row-${Date.now()}-${index}`,
-        sourceColumn: {
-          id: `new-src-${Date.now()}-${index}`,
-          name: `new_source_${index + 1}`,
-          dataType: "VARCHAR",
-          description: "Imported column"
-        },
-        targetColumn: {
-          id: `new-tgt-${Date.now()}-${index}`,
-          name: `new_target_${index + 1}`,
-          dataType: "VARCHAR",
-          description: "Imported column"
-        },
-        status: "pending" as MappingStatus,
-        createdBy: "Current User",
-        createdAt: new Date()
-      }))
-    ];
-    
-    setMappingFile({
-      ...mappingFile,
-      rows: newRows
     });
   };
 
@@ -195,6 +167,7 @@ const Mapping = () => {
 
   const counts = getStatusCounts();
   const rowsToDisplay = searchResults !== null ? searchResults : mappingFile.rows;
+  const hasData = mappingFile.rows.length > 0;
 
   return (
     <SidebarProvider>
@@ -221,86 +194,104 @@ const Mapping = () => {
               >
                 {showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
               </Button>
-              <DownloadButton mappingFile={mappingFile} />
+              
+              {hasData && <DownloadButton mappingFile={mappingFile} />}
+              
               <Button onClick={() => setShowUploadModal(true)}>
                 Upload Mapping
               </Button>
             </div>
           </div>
 
-          <div className="mb-6">
-            <SearchBar 
-              onSearch={handleSearch} 
-              onAISearch={handleAISearch}
-              loading={searchLoading} 
-            />
-          </div>
-
-          <div className="mb-4 flex items-center gap-2">
-            <span className="text-sm font-medium">Status:</span>
-            <Badge className="bg-green-100 text-green-800">
-              Approved: {counts.approved}
-            </Badge>
-            <Badge className="bg-yellow-100 text-yellow-800">
-              Pending: {counts.pending}
-            </Badge>
-            <Badge className="bg-red-100 text-red-800">
-              Rejected: {counts.rejected}
-            </Badge>
-            <Badge className="bg-gray-100 text-gray-800">
-              Draft: {counts.draft}
-            </Badge>
-            
-            {searchResults !== null && (
-              <>
-                <div className="ml-auto" />
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setSearchResults(null)}
-                >
-                  Clear Search
-                </Button>
-              </>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <Tabs defaultValue="table">
-                <TabsList>
-                  <TabsTrigger value="table">Table View</TabsTrigger>
-                  <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
-                </TabsList>
-                <TabsContent value="table" className="mt-4">
-                  <MappingTable 
-                    rows={rowsToDisplay} 
-                    onRowSelect={handleRowSelect}
-                    onStatusChange={handleStatusChange}
-                  />
-                </TabsContent>
-                <TabsContent value="pending" className="mt-4">
-                  <MappingTable 
-                    rows={mappingFile.rows.filter(row => row.status === 'pending')} 
-                    onRowSelect={handleRowSelect}
-                    onStatusChange={handleStatusChange}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
-            
-            <div className="h-[600px]">
-              {showAIAssistant ? (
-                <AIAssistant onClose={() => setShowAIAssistant(false)} />
-              ) : (
-                <ReviewPanel 
-                  selectedRow={selectedRow} 
-                  onStatusChange={handleStatusChange}
-                  onCommentAdd={handleCommentAdd}
+          {hasData ? (
+            <>
+              <div className="mb-6">
+                <SearchBar 
+                  onSearch={handleSearch} 
+                  onAISearch={handleAISearch}
+                  loading={searchLoading} 
                 />
-              )}
+              </div>
+
+              <div className="mb-4 flex items-center gap-2">
+                <span className="text-sm font-medium">Status:</span>
+                <Badge className="bg-green-100 text-green-800">
+                  Approved: {counts.approved}
+                </Badge>
+                <Badge className="bg-yellow-100 text-yellow-800">
+                  Pending: {counts.pending}
+                </Badge>
+                <Badge className="bg-red-100 text-red-800">
+                  Rejected: {counts.rejected}
+                </Badge>
+                <Badge className="bg-gray-100 text-gray-800">
+                  Draft: {counts.draft}
+                </Badge>
+                
+                {searchResults !== null && (
+                  <>
+                    <div className="ml-auto" />
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setSearchResults(null)}
+                    >
+                      Clear Search
+                    </Button>
+                  </>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <Tabs defaultValue="table">
+                    <TabsList>
+                      <TabsTrigger value="table">Table View</TabsTrigger>
+                      <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="table" className="mt-4">
+                      <MappingTable 
+                        rows={rowsToDisplay} 
+                        onRowSelect={handleRowSelect}
+                        onStatusChange={handleStatusChange}
+                      />
+                    </TabsContent>
+                    <TabsContent value="pending" className="mt-4">
+                      <MappingTable 
+                        rows={mappingFile.rows.filter(row => row.status === 'pending')} 
+                        onRowSelect={handleRowSelect}
+                        onStatusChange={handleStatusChange}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </div>
+                
+                <div className="h-[600px]">
+                  {showAIAssistant ? (
+                    <AIAssistant onClose={() => setShowAIAssistant(false)} />
+                  ) : (
+                    <ReviewPanel 
+                      selectedRow={selectedRow} 
+                      onStatusChange={handleStatusChange}
+                      onCommentAdd={handleCommentAdd}
+                    />
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <div className="text-center max-w-md">
+                <h2 className="text-xl font-semibold mb-2">No Mapping Data Available</h2>
+                <p className="text-gray-500 mb-6">
+                  Upload a CSV file containing your source-to-target mappings to get started
+                </p>
+                <Button onClick={() => setShowUploadModal(true)}>
+                  Upload Mapping File
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
         
         <UploadModal

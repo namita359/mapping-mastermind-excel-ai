@@ -9,8 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem
 } from "@/components/ui/sidebar";
-import { Database, Search, Upload, Download, Check, Edit, FileText, FileDown } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { FileText, Upload, Download, Check, Edit, Search, FileDown } from "lucide-react";
 
 interface SidebarProps {
   onUploadClick: () => void;
@@ -18,26 +17,9 @@ interface SidebarProps {
 }
 
 export function AppSidebar({ onUploadClick, onDownloadClick }: SidebarProps) {
-  const location = useLocation();
-  
-  const menuItems = [
-    {
-      title: "Dashboard",
-      url: "/",
-      icon: Database,
-      active: location.pathname === "/"
-    },
-    {
-      title: "Mappings",
-      url: "/mapping",
-      icon: FileText,
-      active: location.pathname === "/mapping"
-    }
-  ];
-  
   const actionItems = [
     {
-      title: "Upload",
+      title: "Upload Mapping",
       icon: Upload,
       onClick: onUploadClick,
       disabled: false
@@ -80,19 +62,15 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: SidebarProps) {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Data Mapping Portal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className={item.active ? "bg-sidebar-accent" : ""}>
-                    <Link to={item.url}>
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton className="bg-sidebar-accent">
+                  <FileText className="h-5 w-5" />
+                  <span>Mapping Tool</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

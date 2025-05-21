@@ -10,10 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { parseCSVFile, convertCSVToMappingData } from "@/lib/csvUtils";
+import { parseCSVFile, convertCSVToMappingData } from "@/lib/fileUtils";
 import { MappingFile } from "@/lib/types";
 
 interface UploadModalProps {
@@ -131,9 +130,6 @@ const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
           title: "CSV Processed Successfully",
           description: `Imported ${mappingFile.rows.length} mapping rows`,
         });
-      } else {
-        // For other file types, just pass the file
-        onUpload(file);
       }
       
       setFile(null);
