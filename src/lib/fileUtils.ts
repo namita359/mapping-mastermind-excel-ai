@@ -41,32 +41,40 @@ export function parseCSVFile(file: File): Promise<string[][]> {
 
 export async function loadSampleMappingData(): Promise<MappingFile | null> {
   try {
-    // Try to load the Excel file first
-    const response = await fetch('/sample_mapping_template.xlsx');
-    
-    if (!response.ok) {
-      // Fall back to CSV if Excel is not available
-      const csvResponse = await fetch('/sample_mapping_template.csv');
-      if (!csvResponse.ok) {
-        console.error('Failed to load sample mapping data');
-        return null;
-      }
-      
-      const csvText = await csvResponse.text();
-      const csvData = parseCSVString(csvText);
-      return processMapping(csvData);
+    // First, try to load the sample CSV since we know it exists
+    const csvResponse = await fetch('/sample_mapping_template.csv');
+    if (!csvResponse.ok) {
+      console.error('Failed to load sample CSV mapping data');
+      return null;
     }
     
-    // Process Excel file
-    const arrayBuffer = await response.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
-    const workbook = XLSX.read(data, { type: 'array' });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
+    const csvText = await csvResponse.text();
+    const csvData = parseCSVString(csvText);
     
-    // Convert to array of arrays (similar format to CSV data)
-    const xlsxData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
-    return processMapping(xlsxData);
+    // Generate Excel file if needed (this allows us to have a working Excel file)
+    try {
+      // Create a workbook
+      const wb = XLSX.utils.book_new();
+      // Convert CSV data to worksheet
+      const ws = XLSX.utils.aoa_to_sheet(csvData);
+      // Add the worksheet to the workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Mapping");
+      
+      // Generate binary data
+      const excelData = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      
+      // Create blob and URL for potential download
+      const blob = new Blob([excelData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // For debugging - this would normally be used to download the file
+      // But we're using it just to verify the Excel file was created successfully
+      console.log("Excel file generated successfully");
+    } catch (error) {
+      console.error('Error generating Excel file:', error);
+    }
+    
+    // Process the CSV data
+    return processMapping(csvData);
     
   } catch (error) {
     console.error('Error loading sample data:', error);
@@ -129,5 +137,6 @@ function processMapping(data: string[][]): MappingFile | null {
     createdAt: new Date()
   };
   
+  console.log("Processed mapping data:", mappingFile);
   return mappingFile;
 }

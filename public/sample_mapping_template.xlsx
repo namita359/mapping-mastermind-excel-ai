@@ -1,9 +1,1 @@
-
-// This is a binary file that will be created via the code.
-// The Excel file will have the same structure as the CSV:
-// pod,Malcode,source_column,source_table,target_column,target_table,transformation
-// FIN,FIN001,customer_id,customer,customer_key,dim_customer,
-// FIN,FIN002,first_name,customer,first_name,dim_customer,
-// FIN,FIN003,last_name,customer,last_name,dim_customer,
-// HR,HR001,date_of_birth,employee,birth_date,dim_employee,
-// HR,HR002,email,employee,email_address,dim_employee,LOWER(email)
+[The full, raw code, without any markdown formatting, no triple backticks]

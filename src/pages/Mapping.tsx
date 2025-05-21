@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
@@ -30,18 +29,37 @@ const Mapping = () => {
   // Load sample data when component mounts
   useEffect(() => {
     const loadInitialData = async () => {
+      console.log("Loading initial data...");
       setIsLoading(true);
-      const sampleData = await loadSampleMappingData();
       
-      if (sampleData) {
-        setMappingFile(sampleData);
+      try {
+        const sampleData = await loadSampleMappingData();
+        console.log("Sample data loaded:", sampleData);
+        
+        if (sampleData && sampleData.rows.length > 0) {
+          setMappingFile(sampleData);
+          toast({
+            title: "Sample data loaded",
+            description: `${sampleData.rows.length} mappings loaded from sample data`,
+          });
+        } else {
+          console.error("No sample data was loaded or data was empty");
+          toast({
+            title: "Error loading sample data",
+            description: "Could not load sample data, please try uploading a file",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error loading sample data:", error);
         toast({
-          title: "Sample data loaded",
-          description: `${sampleData.rows.length} mappings loaded from sample data`,
+          title: "Error loading sample data",
+          description: "An error occurred while loading sample data",
+          variant: "destructive"
         });
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
     
     loadInitialData();
