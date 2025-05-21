@@ -10,8 +10,8 @@ import {
   addEdge,
   Connection,
   MarkerType,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+} from 'reactflow';
+import 'reactflow/dist/style.css';
 import { MappingFile } from '@/lib/types';
 import { createLineageGraph } from '@/lib/lineageUtils';
 

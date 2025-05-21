@@ -1,6 +1,6 @@
 
 import { MappingFile } from './types';
-import { Edge, Node } from '@xyflow/react';
+import { Edge, Node } from 'reactflow';
 
 // Interface for our node data
 interface LineageNodeData {

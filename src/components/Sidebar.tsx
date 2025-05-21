@@ -1,5 +1,4 @@
 
-import { useMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,9 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) {
-  const { collapsed } = useSidebar();
-  const isMobile = useMobile();
+  const sidebar = useSidebar();
+  const collapsed = sidebar?.collapsed || false;
   const { toast } = useToast();
-
-  if (isMobile) {
-    return null;
-  }
 
   return (
     <div className={`h-screen border-r bg-muted/40 ${collapsed ? "w-[60px]" : "w-[220px]"} flex flex-col p-2`}>
