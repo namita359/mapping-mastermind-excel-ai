@@ -1,98 +1,56 @@
 
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem
-} from "@/components/ui/sidebar";
-import { FileText, Upload, Download, Check, Edit, Search, FileDown } from "lucide-react";
+import { useMobile } from "@/hooks/use-mobile";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
+import { FileUp, Download, GitBranch } from "lucide-react";
 
-interface SidebarProps {
-  onUploadClick: () => void;
-  onDownloadClick: () => void;
+interface AppSidebarProps {
+  onUploadClick?: () => void;
+  onDownloadClick?: () => void;
 }
 
-export function AppSidebar({ onUploadClick, onDownloadClick }: SidebarProps) {
-  const actionItems = [
-    {
-      title: "Upload Mapping",
-      icon: Upload,
-      onClick: onUploadClick,
-      disabled: false
-    },
-    {
-      title: "Download",
-      icon: Download,
-      onClick: onDownloadClick,
-      disabled: false
-    },
-    {
-      title: "Download Template",
-      icon: FileDown,
-      onClick: () => {
-        window.open('/sample_mapping_template.csv', '_blank');
-      },
-      disabled: false
-    },
-    {
-      title: "Search",
-      icon: Search,
-      onClick: () => {},
-      disabled: true
-    },
-    {
-      title: "Review",
-      icon: Check,
-      onClick: () => {},
-      disabled: true
-    },
-    {
-      title: "Edit",
-      icon: Edit,
-      onClick: () => {},
-      disabled: true
-    }
-  ];
+export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) {
+  const { collapsed } = useSidebar();
+  const isMobile = useMobile();
+  const { toast } = useToast();
+
+  if (isMobile) {
+    return null;
+  }
 
   return (
-    <Sidebar>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Data Mapping Portal</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton className="bg-sidebar-accent">
-                  <FileText className="h-5 w-5" />
-                  <span>Mapping Tool</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+    <div className={`h-screen border-r bg-muted/40 ${collapsed ? "w-[60px]" : "w-[220px]"} flex flex-col p-2`}>
+      <div className="flex flex-col gap-1">
+        <Link to="/" className="w-full">
+          <Button variant="ghost" className="w-full justify-start">
+            <FileUp className="h-5 w-5 mr-2" />
+            <span className={`${collapsed ? "hidden" : "inline"}`}>Mapping</span>
+          </Button>
+        </Link>
         
-        <SidebarGroup>
-          <SidebarGroupLabel>Actions</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {actionItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton onClick={item.onClick} disabled={item.disabled}>
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+        <Link to="/lineage" className="w-full">
+          <Button variant="ghost" className="w-full justify-start">
+            <GitBranch className="h-5 w-5 mr-2" />
+            <span className={`${collapsed ? "hidden" : "inline"}`}>Lineage</span>
+          </Button>
+        </Link>
+
+        {onUploadClick && (
+          <Button variant="ghost" className="w-full justify-start" onClick={onUploadClick}>
+            <FileUp className="h-5 w-5 mr-2" />
+            <span className={`${collapsed ? "hidden" : "inline"}`}>Upload</span>
+          </Button>
+        )}
+        
+        {onDownloadClick && (
+          <Button variant="ghost" className="w-full justify-start" onClick={onDownloadClick}>
+            <Download className="h-5 w-5 mr-2" />
+            <span className={`${collapsed ? "hidden" : "inline"}`}>Download</span>
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
-
-export default AppSidebar;

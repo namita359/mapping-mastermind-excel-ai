@@ -21,6 +21,7 @@ import { MappingRow, MappingStatus } from "../lib/types";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MappingTableProps {
   rows: MappingRow[];
@@ -196,6 +197,18 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
 
   const displayedRows = sortedRows;
 
+  // Column descriptions for tooltips
+  const columnDescriptions = {
+    pod: "Program of Data - Represents the business program or domain",
+    malcode: "Management Area Logical Code - Unique identifier for a business area",
+    sourceColumn: "The source database column name",
+    sourceTable: "The source database table name",
+    targetColumn: "The target database column name to map to",
+    targetTable: "The target database table that will receive the data",
+    transformation: "Logic applied to transform source data to target format",
+    status: "Current review status of the mapping",
+  };
+
   // Filter UI components
   const FilterMenu = ({ column }: { column: string }) => {
     const [filterValue, setFilterValue] = useState("");
@@ -320,7 +333,16 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               <TableHead className="w-[40px]">#</TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Pod</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">Pod</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{columnDescriptions.pod}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="flex">
                     <Button 
                       variant="ghost" 
@@ -342,7 +364,16 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               </TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Malcode</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">Malcode</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{columnDescriptions.malcode}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="flex">
                     <Button 
                       variant="ghost" 
@@ -364,7 +395,16 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               </TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Source Column</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">Source Column</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{columnDescriptions.sourceColumn}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="flex">
                     <Button 
                       variant="ghost" 
@@ -386,7 +426,16 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               </TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Target Column</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">Target Column</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{columnDescriptions.targetColumn}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="flex">
                     <Button 
                       variant="ghost" 
@@ -408,7 +457,16 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               </TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Transformation</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">Transformation</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{columnDescriptions.transformation}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="flex">
                     <Button 
                       variant="ghost" 
@@ -430,7 +488,16 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               </TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Status</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">Status</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{columnDescriptions.status}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   <div className="flex">
                     <Button 
                       variant="ghost" 
@@ -468,16 +535,69 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                   )}
                 >
                   <TableCell>{index + 1}</TableCell>
-                  <TableCell>{podInfo}</TableCell>
-                  <TableCell>{malcodeInfo}</TableCell>
-                  <TableCell className="font-medium">
-                    {row.sourceColumn.name}
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">{podInfo}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Pod: {podInfo}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">{malcodeInfo}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Malcode: {malcodeInfo}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell className="font-medium">
-                    {row.targetColumn.name}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">{row.sourceColumn.name}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Source Column: {row.sourceColumn.name}</p>
+                          <p>Data Type: {row.sourceColumn.dataType}</p>
+                          {row.sourceColumn.description && <p>Description: {row.sourceColumn.description}</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">{row.targetColumn.name}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Target Column: {row.targetColumn.name}</p>
+                          <p>Data Type: {row.targetColumn.dataType}</p>
+                          {row.targetColumn.description && <p>Description: {row.targetColumn.description}</p>}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {row.transformation || "Direct Copy"}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">{row.transformation || "Direct Copy"}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{row.transformation || "Direct Copy (No Transformation)"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell>
                     <Badge className={getStatusColor(row.status)}>
