@@ -1,4 +1,6 @@
 
+import * as XLSX from 'xlsx';
+
 export interface CSVColumn {
   name: string;
   dataType?: string;
@@ -22,21 +24,62 @@ export function parseCSVFile(file: File): Promise<string[][]> {
     const reader = new FileReader();
     
     reader.onload = (event) => {
-      if (!event.target || typeof event.target.result !== 'string') {
-        reject(new Error('Failed to read file'));
+      if (!event.target || typeof event.target.result === 'string') {
+        reject(new Error('Failed to read file as binary string'));
         return;
       }
       
-      const csvData = event.target.result;
-      const rows = parseCSV(csvData);
-      resolve(rows);
+      try {
+        const data = new Uint8Array(event.target.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert to array of arrays
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+        resolve(rows);
+      } catch (error) {
+        reject(new Error('Error parsing Excel file'));
+      }
     };
     
     reader.onerror = () => {
       reject(new Error('Error reading file'));
     };
     
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+export function parseExcelFile(file: File): Promise<string[][]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      if (!event.target || !event.target.result) {
+        reject(new Error('Failed to read file'));
+        return;
+      }
+      
+      try {
+        const data = new Uint8Array(event.target.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert to array of arrays
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+        resolve(rows);
+      } catch (error) {
+        reject(new Error('Error parsing Excel file'));
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Error reading file'));
+    };
+    
+    reader.readAsArrayBuffer(file);
   });
 }
 
@@ -91,3 +134,4 @@ export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
   
   return mappings;
 }
+

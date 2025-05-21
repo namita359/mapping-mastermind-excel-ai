@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
+import { Check, X, Filter } from "lucide-react";
 
 const Mapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
@@ -22,6 +24,7 @@ const Mapping = () => {
   const [searchResults, setSearchResults] = useState<MappingRow[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<MappingStatus | null>(null);
   const { toast } = useToast();
 
   // Load sample data when component mounts
@@ -154,12 +157,12 @@ const Mapping = () => {
   };
 
   const handleFileUpload = (file: File, importedMappingFile?: MappingFile) => {
-    // If we have parsed mapping data from CSV
+    // If we have parsed mapping data from CSV or Excel
     if (importedMappingFile) {
       setMappingFile(importedMappingFile);
       toast({
         title: "Mapping file imported",
-        description: `${importedMappingFile.rows.length} mappings loaded from CSV`,
+        description: `${importedMappingFile.rows.length} mappings loaded from file`,
       });
       return;
     }
@@ -185,9 +188,30 @@ const Mapping = () => {
     return counts;
   };
 
+  // Apply status filter if one is selected
+  const getFilteredRows = () => {
+    // If we have search results, filter those
+    let rowsToFilter = searchResults !== null ? searchResults : mappingFile.rows;
+    
+    // Apply status filter if selected
+    if (statusFilter) {
+      return rowsToFilter.filter(row => row.status === statusFilter);
+    }
+    
+    return rowsToFilter;
+  };
+
   const counts = getStatusCounts();
-  const rowsToDisplay = searchResults !== null ? searchResults : mappingFile.rows;
+  const rowsToDisplay = getFilteredRows();
   const hasData = mappingFile.rows.length > 0;
+
+  // Function to handle status filter click
+  const handleStatusFilterClick = (status: MappingStatus | null) => {
+    // Toggle filter if already active
+    setStatusFilter(currentFilter => 
+      currentFilter === status ? null : status
+    );
+  };
 
   if (isLoading) {
     return (
@@ -244,32 +268,86 @@ const Mapping = () => {
                 />
               </div>
 
-              <div className="mb-4 flex items-center gap-2">
-                <span className="text-sm font-medium">Status:</span>
-                <Badge className="bg-green-100 text-green-800">
-                  Approved: {counts.approved}
-                </Badge>
-                <Badge className="bg-yellow-100 text-yellow-800">
-                  Pending: {counts.pending}
-                </Badge>
-                <Badge className="bg-red-100 text-red-800">
-                  Rejected: {counts.rejected}
-                </Badge>
-                <Badge className="bg-gray-100 text-gray-800">
-                  Draft: {counts.draft}
-                </Badge>
-                
-                {searchResults !== null && (
-                  <>
-                    <div className="ml-auto" />
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Status:</span>
+                  <Button 
+                    variant={statusFilter === "approved" ? "default" : "outline"} 
+                    size="sm"
+                    className={`flex items-center gap-1 ${statusFilter === "approved" ? "bg-green-600 hover:bg-green-700" : "bg-green-50 text-green-800 hover:bg-green-100"}`}
+                    onClick={() => handleStatusFilterClick("approved")}
+                  >
+                    <Check className="h-4 w-4" />
+                    Approved: {counts.approved}
+                    {statusFilter === "approved" && (
+                      <X className="h-3.5 w-3.5 ml-1" onClick={(e) => {
+                        e.stopPropagation();
+                        setStatusFilter(null);
+                      }} />
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    variant={statusFilter === "pending" ? "default" : "outline"} 
+                    size="sm"
+                    className={`flex items-center gap-1 ${statusFilter === "pending" ? "bg-yellow-600 hover:bg-yellow-700" : "bg-yellow-50 text-yellow-800 hover:bg-yellow-100"}`}
+                    onClick={() => handleStatusFilterClick("pending")}
+                  >
+                    <Filter className="h-4 w-4" />
+                    Pending: {counts.pending}
+                    {statusFilter === "pending" && (
+                      <X className="h-3.5 w-3.5 ml-1" onClick={(e) => {
+                        e.stopPropagation();
+                        setStatusFilter(null);
+                      }} />
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    variant={statusFilter === "rejected" ? "default" : "outline"} 
+                    size="sm"
+                    className={`flex items-center gap-1 ${statusFilter === "rejected" ? "bg-red-600 hover:bg-red-700" : "bg-red-50 text-red-800 hover:bg-red-100"}`}
+                    onClick={() => handleStatusFilterClick("rejected")}
+                  >
+                    <X className="h-4 w-4" />
+                    Rejected: {counts.rejected}
+                    {statusFilter === "rejected" && (
+                      <X className="h-3.5 w-3.5 ml-1" onClick={(e) => {
+                        e.stopPropagation();
+                        setStatusFilter(null);
+                      }} />
+                    )}
+                  </Button>
+                  
+                  {statusFilter && (
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => setSearchResults(null)}
+                      onClick={() => setStatusFilter(null)}
+                      className="ml-2"
                     >
-                      Clear Search
+                      Clear Filter
                     </Button>
-                  </>
+                  )}
+                  
+                  {searchResults !== null && (
+                    <>
+                      <div className="ml-auto" />
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setSearchResults(null)}
+                      >
+                        Clear Search
+                      </Button>
+                    </>
+                  )}
+                </div>
+                
+                {statusFilter && (
+                  <div className="text-sm">
+                    Showing {rowsToDisplay.length} {statusFilter} records
+                  </div>
                 )}
               </div>
               
@@ -315,7 +393,7 @@ const Mapping = () => {
               <div className="text-center max-w-md">
                 <h2 className="text-xl font-semibold mb-2">No Mapping Data Available</h2>
                 <p className="text-gray-500 mb-6">
-                  Upload a CSV file containing your source-to-target mappings to get started
+                  Upload a CSV or Excel file containing your source-to-target mappings to get started
                 </p>
                 <Button onClick={() => setShowUploadModal(true)}>
                   Upload Mapping File

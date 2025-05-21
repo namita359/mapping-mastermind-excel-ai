@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { parseCSVFile, convertCSVToMappingData } from "@/lib/csvUtils";
+import { parseCSVFile, parseExcelFile, convertCSVToMappingData } from "@/lib/csvUtils";
 import { MappingFile } from "@/lib/types";
 
 interface UploadModalProps {
@@ -34,14 +34,14 @@ const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
   };
 
   const validateAndSetFile = (file: File) => {
-    // For CSV reading, prioritize CSV files
+    // Check if file is CSV or Excel
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     
-    // Check if file is CSV
-    if (fileExtension !== '.csv') {
+    // Check if file is valid type
+    if (fileExtension !== '.csv' && fileExtension !== '.xlsx' && fileExtension !== '.xls') {
       toast({
         title: "Invalid file type",
-        description: "Please upload a CSV file for mapping data.",
+        description: "Please upload a CSV or Excel file for mapping data.",
         variant: "destructive"
       });
       return;
@@ -75,75 +75,82 @@ const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
     try {
       setProcessing(true);
       
-      // Process CSV file
+      let data: string[][] = [];
+      
+      // Process file based on its type
       if (file.name.endsWith('.csv')) {
-        const csvData = await parseCSVFile(file);
-        const mappings = convertCSVToMappingData(csvData);
-        
-        if (mappings.length === 0) {
-          toast({
-            title: "Error processing CSV",
-            description: "No valid mapping data found in the CSV file.",
-            variant: "destructive"
-          });
-          setProcessing(false);
-          return;
-        }
-        
-        // Group by unique source-target system pairs
-        const systems = mappings.reduce((acc, mapping) => {
-          const key = `${mapping.sourceTable}-${mapping.targetTable}`;
-          if (!acc[key]) {
-            acc[key] = {
-              source: mapping.sourceTable,
-              target: mapping.targetTable
-            };
-          }
-          return acc;
-        }, {} as Record<string, {source: string, target: string}>);
-        
-        // Use the first pair as the default systems
-        const systemPairs = Object.values(systems);
-        const sourceSystem = systemPairs[0]?.source || "Source System";
-        const targetSystem = systemPairs[0]?.target || "Target System";
-        
-        // Convert to MappingFile format
-        const mappingFile: MappingFile = {
-          id: `file-${Date.now()}`,
-          name: file.name.replace('.csv', ''),
-          sourceSystem,
-          targetSystem,
-          rows: mappings.map((mapping, index) => ({
-            id: `row-${Date.now()}-${index}`,
-            sourceColumn: {
-              id: `src-${Date.now()}-${index}`,
-              name: mapping.sourceColumn,
-              dataType: "VARCHAR", // Default type
-              description: `${mapping.pod} - ${mapping.malcode}`,
-            },
-            targetColumn: {
-              id: `tgt-${Date.now()}-${index}`,
-              name: mapping.targetColumn,
-              dataType: "VARCHAR", // Default type
-            },
-            transformation: mapping.transformation,
-            status: "pending",
-            createdBy: `Pod: ${mapping.pod}`,
-            createdAt: new Date(),
-            comments: [`Pod: ${mapping.pod}`, `Malcode: ${mapping.malcode}`]
-          })),
-          status: "draft",
-          createdBy: "CSV Import",
-          createdAt: new Date()
-        };
-        
-        onUpload(file, mappingFile);
-        
-        toast({
-          title: "CSV Processed Successfully",
-          description: `Imported ${mappingFile.rows.length} mapping rows`,
-        });
+        data = await parseCSVFile(file);
+      } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        data = await parseExcelFile(file);
+      } else {
+        throw new Error('Unsupported file type');
       }
+      
+      const mappings = convertCSVToMappingData(data);
+      
+      if (mappings.length === 0) {
+        toast({
+          title: "Error processing file",
+          description: "No valid mapping data found in the file.",
+          variant: "destructive"
+        });
+        setProcessing(false);
+        return;
+      }
+      
+      // Group by unique source-target system pairs
+      const systems = mappings.reduce((acc, mapping) => {
+        const key = `${mapping.sourceTable}-${mapping.targetTable}`;
+        if (!acc[key]) {
+          acc[key] = {
+            source: mapping.sourceTable,
+            target: mapping.targetTable
+          };
+        }
+        return acc;
+      }, {} as Record<string, {source: string, target: string}>);
+      
+      // Use the first pair as the default systems
+      const systemPairs = Object.values(systems);
+      const sourceSystem = systemPairs[0]?.source || "Source System";
+      const targetSystem = systemPairs[0]?.target || "Target System";
+      
+      // Convert to MappingFile format
+      const mappingFile: MappingFile = {
+        id: `file-${Date.now()}`,
+        name: file.name.replace(/\.[^/.]+$/, ''), // Remove file extension
+        sourceSystem,
+        targetSystem,
+        rows: mappings.map((mapping, index) => ({
+          id: `row-${Date.now()}-${index}`,
+          sourceColumn: {
+            id: `src-${Date.now()}-${index}`,
+            name: mapping.sourceColumn,
+            dataType: "VARCHAR", // Default type
+            description: `${mapping.pod} - ${mapping.malcode}`,
+          },
+          targetColumn: {
+            id: `tgt-${Date.now()}-${index}`,
+            name: mapping.targetColumn,
+            dataType: "VARCHAR", // Default type
+          },
+          transformation: mapping.transformation,
+          status: "pending",
+          createdBy: `Pod: ${mapping.pod}`,
+          createdAt: new Date(),
+          comments: [`Pod: ${mapping.pod}`, `Malcode: ${mapping.malcode}`]
+        })),
+        status: "draft",
+        createdBy: "File Import",
+        createdAt: new Date()
+      };
+      
+      onUpload(file, mappingFile);
+      
+      toast({
+        title: "File Processed Successfully",
+        description: `Imported ${mappingFile.rows.length} mapping rows`,
+      });
       
       setFile(null);
       onClose();
@@ -164,7 +171,7 @@ const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
         <DialogHeader>
           <DialogTitle>Upload Mapping File</DialogTitle>
           <DialogDescription>
-            Upload a CSV file containing your source-to-target mappings.
+            Upload a CSV or Excel file containing your source-to-target mappings.
           </DialogDescription>
         </DialogHeader>
         
@@ -180,19 +187,19 @@ const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
             <div className="flex flex-col items-center justify-center gap-2">
               <Upload className="h-10 w-10 text-gray-400" />
               <p className="text-sm font-medium">
-                Drag and drop your CSV file here, or{" "}
+                Drag and drop your file here, or{" "}
                 <label className="text-blue-500 cursor-pointer hover:text-blue-600">
                   browse
                   <Input
                     type="file"
                     className="hidden"
-                    accept=".csv"
+                    accept=".csv,.xlsx,.xls"
                     onChange={handleFileChange}
                   />
                 </label>
               </p>
               <p className="text-xs text-gray-500">
-                Supports CSV files with mapping data
+                Supports CSV and Excel files with mapping data
               </p>
             </div>
           </div>
