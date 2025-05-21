@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Table,
@@ -106,20 +105,23 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
         case "sourceColumn":
           value = row.sourceColumn.name;
           break;
-        case "sourceDataType":
-          value = row.sourceColumn.dataType;
+        case "sourceTable":
+          value = row.sourceColumn.description?.split(" - ")[0] || "";
+          break;
+        case "malcode":
+          value = row.sourceColumn.description?.split(" - ")[1] || "";
           break;
         case "targetColumn":
           value = row.targetColumn.name;
-          break;
-        case "targetDataType":
-          value = row.targetColumn.dataType;
           break;
         case "transformation":
           value = row.transformation || "Direct Copy";
           break;
         case "status":
           value = row.status;
+          break;
+        case "pod":
+          value = row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
           break;
         default:
           value = "";
@@ -156,17 +158,17 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
         valueA = a.sourceColumn.name;
         valueB = b.sourceColumn.name;
         break;
-      case "sourceDataType":
-        valueA = a.sourceColumn.dataType;
-        valueB = b.sourceColumn.dataType;
+      case "sourceTable":
+        valueA = a.sourceColumn.description?.split(" - ")[0] || "";
+        valueB = b.sourceColumn.description?.split(" - ")[0] || "";
+        break;
+      case "malcode":
+        valueA = a.sourceColumn.description?.split(" - ")[1] || "";
+        valueB = b.sourceColumn.description?.split(" - ")[1] || "";
         break;
       case "targetColumn":
         valueA = a.targetColumn.name;
         valueB = b.targetColumn.name;
-        break;
-      case "targetDataType":
-        valueA = a.targetColumn.dataType;
-        valueB = b.targetColumn.dataType;
         break;
       case "transformation":
         valueA = a.transformation || "Direct Copy";
@@ -175,6 +177,10 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
       case "status":
         valueA = a.status;
         valueB = b.status;
+        break;
+      case "pod":
+        valueA = a.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
+        valueB = b.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
         break;
       default:
         valueA = "";
@@ -311,7 +317,51 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
         <Table>
           <TableHeader className="bg-gray-50">
             <TableRow>
-              <TableHead className="w-[50px]">#</TableHead>
+              <TableHead className="w-[40px]">#</TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Pod</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "pod" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("pod")}
+                    >
+                      {sortConfig?.column === "pod" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="pod" />
+                  </div>
+                </div>
+              </TableHead>
+              <TableHead>
+                <div className="flex items-center">
+                  <span>Malcode</span>
+                  <div className="flex">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className={cn(
+                        "h-8 w-8 p-0 ml-1",
+                        sortConfig?.column === "malcode" ? "text-primary" : "text-muted-foreground"
+                      )}
+                      onClick={() => applySort("malcode")}
+                    >
+                      {sortConfig?.column === "malcode" && sortConfig?.direction === "asc" ? 
+                        <SortAsc className="h-4 w-4" /> : 
+                        <SortDesc className="h-4 w-4" />
+                      }
+                    </Button>
+                    <FilterMenu column="malcode" />
+                  </div>
+                </div>
+              </TableHead>
               <TableHead>
                 <div className="flex items-center">
                   <span>Source Column</span>
@@ -336,28 +386,6 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
               </TableHead>
               <TableHead>
                 <div className="flex items-center">
-                  <span>Source Data Type</span>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "sourceDataType" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("sourceDataType")}
-                    >
-                      {sortConfig?.column === "sourceDataType" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="sourceDataType" />
-                  </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
                   <span>Target Column</span>
                   <div className="flex">
                     <Button 
@@ -375,28 +403,6 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                       }
                     </Button>
                     <FilterMenu column="targetColumn" />
-                  </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <span>Target Data Type</span>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "targetDataType" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("targetDataType")}
-                    >
-                      {sortConfig?.column === "targetDataType" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="targetDataType" />
                   </div>
                 </div>
               </TableHead>
@@ -448,73 +454,72 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayedRows.map((row, index) => (
-              <TableRow 
-                key={row.id} 
-                onClick={() => handleRowClick(row)}
-                className={cn(
-                  "cursor-pointer hover:bg-gray-50",
-                  selectedRowId === row.id ? "bg-blue-50" : ""
-                )}
-              >
-                <TableCell>{index + 1}</TableCell>
-                <TableCell className="font-medium">
-                  {row.sourceColumn.name}
-                  {row.sourceColumn.isPrimaryKey && (
-                    <Badge variant="outline" className="ml-2">PK</Badge>
+            {displayedRows.map((row, index) => {
+              const podInfo = row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
+              const malcodeInfo = row.comments?.find(c => c.startsWith("Malcode:"))?.replace("Malcode: ", "") || "";
+              
+              return (
+                <TableRow 
+                  key={row.id} 
+                  onClick={() => handleRowClick(row)}
+                  className={cn(
+                    "cursor-pointer hover:bg-gray-50",
+                    selectedRowId === row.id ? "bg-blue-50" : ""
                   )}
-                </TableCell>
-                <TableCell>{row.sourceColumn.dataType}</TableCell>
-                <TableCell className="font-medium">
-                  {row.targetColumn.name}
-                  {row.targetColumn.isPrimaryKey && (
-                    <Badge variant="outline" className="ml-2">PK</Badge>
-                  )}
-                </TableCell>
-                <TableCell>{row.targetColumn.dataType}</TableCell>
-                <TableCell className="max-w-[200px] truncate">
-                  {row.transformation || "Direct Copy"}
-                </TableCell>
-                <TableCell>
-                  <Badge className={getStatusColor(row.status)}>
-                    {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        onStatusChange(row.id, 'approved');
-                      }}>
-                        <Check className="mr-2 h-4 w-4" />
-                        <span>Approve</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        onStatusChange(row.id, 'rejected');
-                      }}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        <span>Reject</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        onStatusChange(row.id, 'pending');
-                      }}>
-                        <FileUp className="mr-2 h-4 w-4" />
-                        <span>Mark as Pending</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+                >
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>{podInfo}</TableCell>
+                  <TableCell>{malcodeInfo}</TableCell>
+                  <TableCell className="font-medium">
+                    {row.sourceColumn.name}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {row.targetColumn.name}
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate">
+                    {row.transformation || "Direct Copy"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(row.status)}>
+                      {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          onStatusChange(row.id, 'approved');
+                        }}>
+                          <Check className="mr-2 h-4 w-4" />
+                          <span>Approve</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          onStatusChange(row.id, 'rejected');
+                        }}>
+                          <FileDown className="mr-2 h-4 w-4" />
+                          <span>Reject</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          onStatusChange(row.id, 'pending');
+                        }}>
+                          <FileUp className="mr-2 h-4 w-4" />
+                          <span>Mark as Pending</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {displayedRows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">

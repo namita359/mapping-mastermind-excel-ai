@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
 import MappingTable from "@/components/MappingTable";
@@ -13,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { createEmptyMappingFile } from "@/lib/fileUtils";
+import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
 
 const Mapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
@@ -22,7 +21,28 @@ const Mapping = () => {
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [searchResults, setSearchResults] = useState<MappingRow[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Load sample data when component mounts
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      const sampleData = await loadSampleMappingData();
+      
+      if (sampleData) {
+        setMappingFile(sampleData);
+        toast({
+          title: "Sample data loaded",
+          description: `${sampleData.rows.length} mappings loaded from sample data`,
+        });
+      }
+      
+      setIsLoading(false);
+    };
+    
+    loadInitialData();
+  }, [toast]);
 
   const handleRowSelect = (row: MappingRow) => {
     setSelectedRow(row);
@@ -168,6 +188,17 @@ const Mapping = () => {
   const counts = getStatusCounts();
   const rowsToDisplay = searchResults !== null ? searchResults : mappingFile.rows;
   const hasData = mappingFile.rows.length > 0;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Loading mapping data...</h2>
+          <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>

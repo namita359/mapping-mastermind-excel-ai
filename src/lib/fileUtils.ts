@@ -1,26 +1,18 @@
 
 import { MappingFile, MappingRow } from "./types";
+import { parseCSVString, convertCSVToMappingData } from "./csvUtils";
 
-export interface CSVColumn {
-  name: string;
-  dataType?: string;
-  description?: string;
-  isPrimaryKey?: boolean;
-  isNullable?: boolean;
-}
-
-export interface CSVMapping {
-  sourceColumn: string;
-  sourceDataType: string;
-  sourceDescription?: string;
-  sourceIsPrimaryKey?: boolean;
-  sourceIsNullable?: boolean;
-  targetColumn: string;
-  targetDataType: string;
-  targetDescription?: string;
-  targetIsPrimaryKey?: boolean;
-  targetIsNullable?: boolean;
-  transformation?: string;
+export function createEmptyMappingFile(): MappingFile {
+  return {
+    id: `file-${Date.now()}`,
+    name: "New Mapping",
+    sourceSystem: "Source System",
+    targetSystem: "Target System",
+    rows: [],
+    status: "draft",
+    createdBy: "Current User",
+    createdAt: new Date()
+  };
 }
 
 export function parseCSVFile(file: File): Promise<string[][]> {
@@ -34,7 +26,7 @@ export function parseCSVFile(file: File): Promise<string[][]> {
       }
       
       const csvData = event.target.result;
-      const rows = parseCSV(csvData);
+      const rows = parseCSVString(csvData);
       resolve(rows);
     };
     
@@ -46,73 +38,73 @@ export function parseCSVFile(file: File): Promise<string[][]> {
   });
 }
 
-function parseCSV(csvText: string): string[][] {
-  const rows = csvText.split(/\r?\n/).filter(row => row.trim() !== '');
-  return rows.map(row => {
-    // Handle quoted values (which might contain commas)
-    const matches = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-    return matches.map(value => value.replace(/^"(.*)"$/, '$1').trim());
-  });
-}
-
-export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
-  // Assuming first row is headers
-  const headers = csvData[0];
-  const mappings: CSVMapping[] = [];
-  
-  // Map CSV columns to expected format
-  const columnIndices = {
-    sourceColumn: headers.indexOf('Source Column'),
-    sourceDataType: headers.indexOf('Source Data Type'),
-    sourceDescription: headers.indexOf('Source Description'),
-    sourceIsPrimaryKey: headers.indexOf('Source Is Primary Key'),
-    sourceIsNullable: headers.indexOf('Source Is Nullable'),
-    targetColumn: headers.indexOf('Target Column'),
-    targetDataType: headers.indexOf('Target Data Type'),
-    targetDescription: headers.indexOf('Target Description'),
-    targetIsPrimaryKey: headers.indexOf('Target Is Primary Key'),
-    targetIsNullable: headers.indexOf('Target Is Nullable'),
-    transformation: headers.indexOf('Transformation')
-  };
-  
-  // Process data rows (skip header)
-  for (let i = 1; i < csvData.length; i++) {
-    const row = csvData[i];
+export async function loadSampleMappingData(): Promise<MappingFile | null> {
+  try {
+    const response = await fetch('/sample_mapping_template.csv');
+    if (!response.ok) {
+      console.error('Failed to load sample mapping data');
+      return null;
+    }
     
-    // Skip empty rows
-    if (row.length === 0 || (row.length === 1 && !row[0])) continue;
+    const csvText = await response.text();
+    const csvData = parseCSVString(csvText);
+    const mappings = convertCSVToMappingData(csvData);
     
-    const mapping: CSVMapping = {
-      sourceColumn: row[columnIndices.sourceColumn] || '',
-      sourceDataType: row[columnIndices.sourceDataType] || '',
-      sourceDescription: columnIndices.sourceDescription >= 0 ? row[columnIndices.sourceDescription] : undefined,
-      sourceIsPrimaryKey: columnIndices.sourceIsPrimaryKey >= 0 ? row[columnIndices.sourceIsPrimaryKey]?.toLowerCase() === 'true' : undefined,
-      sourceIsNullable: columnIndices.sourceIsNullable >= 0 ? row[columnIndices.sourceIsNullable]?.toLowerCase() === 'true' : undefined,
-      targetColumn: row[columnIndices.targetColumn] || '',
-      targetDataType: row[columnIndices.targetDataType] || '',
-      targetDescription: columnIndices.targetDescription >= 0 ? row[columnIndices.targetDescription] : undefined,
-      targetIsPrimaryKey: columnIndices.targetIsPrimaryKey >= 0 ? row[columnIndices.targetIsPrimaryKey]?.toLowerCase() === 'true' : undefined,
-      targetIsNullable: columnIndices.targetIsNullable >= 0 ? row[columnIndices.targetIsNullable]?.toLowerCase() === 'true' : undefined,
-      transformation: columnIndices.transformation >= 0 ? row[columnIndices.transformation] : undefined
+    if (mappings.length === 0) {
+      console.error('No valid mapping data found in the sample CSV');
+      return null;
+    }
+    
+    // Group by unique source-target system pairs
+    const systems = mappings.reduce((acc, mapping) => {
+      const key = `${mapping.sourceTable}-${mapping.targetTable}`;
+      if (!acc[key]) {
+        acc[key] = {
+          source: mapping.sourceTable,
+          target: mapping.targetTable
+        };
+      }
+      return acc;
+    }, {} as Record<string, {source: string, target: string}>);
+    
+    // Use the first pair as the default systems
+    const systemPairs = Object.values(systems);
+    const sourceSystem = systemPairs[0]?.source || "Source System";
+    const targetSystem = systemPairs[0]?.target || "Target System";
+    
+    // Convert to MappingFile format
+    const mappingFile: MappingFile = {
+      id: `file-${Date.now()}`,
+      name: "Sample Mapping Data",
+      sourceSystem,
+      targetSystem,
+      rows: mappings.map((mapping, index) => ({
+        id: `row-${Date.now()}-${index}`,
+        sourceColumn: {
+          id: `src-${Date.now()}-${index}`,
+          name: mapping.sourceColumn,
+          dataType: "VARCHAR", // Default type
+          description: `${mapping.pod} - ${mapping.malcode}`,
+        },
+        targetColumn: {
+          id: `tgt-${Date.now()}-${index}`,
+          name: mapping.targetColumn,
+          dataType: "VARCHAR", // Default type
+        },
+        transformation: mapping.transformation,
+        status: "pending",
+        createdBy: "Sample Data",
+        createdAt: new Date(),
+        comments: [`Pod: ${mapping.pod}`, `Malcode: ${mapping.malcode}`]
+      })),
+      status: "draft",
+      createdBy: "Sample Data",
+      createdAt: new Date()
     };
     
-    mappings.push(mapping);
+    return mappingFile;
+  } catch (error) {
+    console.error('Error loading sample data:', error);
+    return null;
   }
-  
-  return mappings;
-}
-
-// Function to create an empty mapping file for initial state
-export function createEmptyMappingFile(): MappingFile {
-  return {
-    id: 'new-file',
-    name: 'New Mapping',
-    description: 'Please upload a mapping file to get started',
-    sourceSystem: 'Source System',
-    targetSystem: 'Target System',
-    rows: [],
-    status: 'draft',
-    createdBy: 'System User',
-    createdAt: new Date()
-  };
 }

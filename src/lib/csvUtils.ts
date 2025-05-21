@@ -8,16 +8,12 @@ export interface CSVColumn {
 }
 
 export interface CSVMapping {
+  pod: string;
+  malcode: string;
   sourceColumn: string;
-  sourceDataType: string;
-  sourceDescription?: string;
-  sourceIsPrimaryKey?: boolean;
-  sourceIsNullable?: boolean;
+  sourceTable: string;
   targetColumn: string;
-  targetDataType: string;
-  targetDescription?: string;
-  targetIsPrimaryKey?: boolean;
-  targetIsNullable?: boolean;
+  targetTable: string;
   transformation?: string;
 }
 
@@ -44,6 +40,10 @@ export function parseCSVFile(file: File): Promise<string[][]> {
   });
 }
 
+export function parseCSVString(csvText: string): string[][] {
+  return parseCSV(csvText);
+}
+
 function parseCSV(csvText: string): string[][] {
   const rows = csvText.split(/\r?\n/).filter(row => row.trim() !== '');
   return rows.map(row => {
@@ -60,17 +60,13 @@ export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
   
   // Map CSV columns to expected format
   const columnIndices = {
-    sourceColumn: headers.indexOf('Source Column'),
-    sourceDataType: headers.indexOf('Source Data Type'),
-    sourceDescription: headers.indexOf('Source Description'),
-    sourceIsPrimaryKey: headers.indexOf('Source Is Primary Key'),
-    sourceIsNullable: headers.indexOf('Source Is Nullable'),
-    targetColumn: headers.indexOf('Target Column'),
-    targetDataType: headers.indexOf('Target Data Type'),
-    targetDescription: headers.indexOf('Target Description'),
-    targetIsPrimaryKey: headers.indexOf('Target Is Primary Key'),
-    targetIsNullable: headers.indexOf('Target Is Nullable'),
-    transformation: headers.indexOf('Transformation')
+    pod: headers.indexOf('pod'),
+    malcode: headers.indexOf('Malcode'),
+    sourceColumn: headers.indexOf('source_column'),
+    sourceTable: headers.indexOf('source_table'),
+    targetColumn: headers.indexOf('target_column'),
+    targetTable: headers.indexOf('target_table'),
+    transformation: headers.indexOf('transformation')
   };
   
   // Process data rows (skip header)
@@ -81,16 +77,12 @@ export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
     if (row.length === 0 || (row.length === 1 && !row[0])) continue;
     
     const mapping: CSVMapping = {
+      pod: row[columnIndices.pod] || '',
+      malcode: row[columnIndices.malcode] || '',
       sourceColumn: row[columnIndices.sourceColumn] || '',
-      sourceDataType: row[columnIndices.sourceDataType] || '',
-      sourceDescription: columnIndices.sourceDescription >= 0 ? row[columnIndices.sourceDescription] : undefined,
-      sourceIsPrimaryKey: columnIndices.sourceIsPrimaryKey >= 0 ? row[columnIndices.sourceIsPrimaryKey]?.toLowerCase() === 'true' : undefined,
-      sourceIsNullable: columnIndices.sourceIsNullable >= 0 ? row[columnIndices.sourceIsNullable]?.toLowerCase() === 'true' : undefined,
+      sourceTable: row[columnIndices.sourceTable] || '',
       targetColumn: row[columnIndices.targetColumn] || '',
-      targetDataType: row[columnIndices.targetDataType] || '',
-      targetDescription: columnIndices.targetDescription >= 0 ? row[columnIndices.targetDescription] : undefined,
-      targetIsPrimaryKey: columnIndices.targetIsPrimaryKey >= 0 ? row[columnIndices.targetIsPrimaryKey]?.toLowerCase() === 'true' : undefined,
-      targetIsNullable: columnIndices.targetIsNullable >= 0 ? row[columnIndices.targetIsNullable]?.toLowerCase() === 'true' : undefined,
+      targetTable: row[columnIndices.targetTable] || '',
       transformation: columnIndices.transformation >= 0 ? row[columnIndices.transformation] : undefined
     };
     

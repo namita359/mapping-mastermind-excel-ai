@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { parseCSVFile, convertCSVToMappingData } from "@/lib/fileUtils";
+import { parseCSVFile, convertCSVToMappingData } from "@/lib/csvUtils";
 import { MappingFile } from "@/lib/types";
 
 interface UploadModalProps {
@@ -90,34 +90,47 @@ const UploadModal = ({ isOpen, onClose, onUpload }: UploadModalProps) => {
           return;
         }
         
+        // Group by unique source-target system pairs
+        const systems = mappings.reduce((acc, mapping) => {
+          const key = `${mapping.sourceTable}-${mapping.targetTable}`;
+          if (!acc[key]) {
+            acc[key] = {
+              source: mapping.sourceTable,
+              target: mapping.targetTable
+            };
+          }
+          return acc;
+        }, {} as Record<string, {source: string, target: string}>);
+        
+        // Use the first pair as the default systems
+        const systemPairs = Object.values(systems);
+        const sourceSystem = systemPairs[0]?.source || "Source System";
+        const targetSystem = systemPairs[0]?.target || "Target System";
+        
         // Convert to MappingFile format
         const mappingFile: MappingFile = {
           id: `file-${Date.now()}`,
           name: file.name.replace('.csv', ''),
-          sourceSystem: "CSV Import",
-          targetSystem: "Data Warehouse",
+          sourceSystem,
+          targetSystem,
           rows: mappings.map((mapping, index) => ({
             id: `row-${Date.now()}-${index}`,
             sourceColumn: {
               id: `src-${Date.now()}-${index}`,
               name: mapping.sourceColumn,
-              dataType: mapping.sourceDataType,
-              description: mapping.sourceDescription,
-              isPrimaryKey: mapping.sourceIsPrimaryKey,
-              isNullable: mapping.sourceIsNullable
+              dataType: "VARCHAR", // Default type
+              description: `${mapping.pod} - ${mapping.malcode}`,
             },
             targetColumn: {
               id: `tgt-${Date.now()}-${index}`,
               name: mapping.targetColumn,
-              dataType: mapping.targetDataType,
-              description: mapping.targetDescription,
-              isPrimaryKey: mapping.targetIsPrimaryKey,
-              isNullable: mapping.targetIsNullable
+              dataType: "VARCHAR", // Default type
             },
             transformation: mapping.transformation,
             status: "pending",
-            createdBy: "CSV Import",
+            createdBy: `Pod: ${mapping.pod}`,
             createdAt: new Date(),
+            comments: [`Pod: ${mapping.pod}`, `Malcode: ${mapping.malcode}`]
           })),
           status: "draft",
           createdBy: "CSV Import",

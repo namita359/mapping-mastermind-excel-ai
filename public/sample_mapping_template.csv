@@ -1,7 +1,7 @@
 
-Source Column,Source Data Type,Source Description,Source Is Primary Key,Source Is Nullable,Target Column,Target Data Type,Target Description,Target Is Primary Key,Target Is Nullable,Transformation
-customer_id,VARCHAR,Customer identifier,true,false,customer_key,INTEGER,Customer surrogate key,true,false,
-first_name,VARCHAR,Customer first name,false,true,first_name,VARCHAR,Customer first name,false,true,
-last_name,VARCHAR,Customer last name,false,true,last_name,VARCHAR,Customer last name,false,false,
-date_of_birth,DATE,Customer birth date,false,true,birth_date,DATE,Customer birth date,false,true,
-email,VARCHAR,Customer email address,false,false,email_address,VARCHAR,Customer email for contact,false,false,LOWER(email)
+pod,Malcode,source_column,source_table,target_column,target_table,transformation
+FIN,FIN001,customer_id,customer,customer_key,dim_customer,
+FIN,FIN002,first_name,customer,first_name,dim_customer,
+FIN,FIN003,last_name,customer,last_name,dim_customer,
+HR,HR001,date_of_birth,employee,birth_date,dim_employee,
+HR,HR002,email,employee,email_address,dim_employee,LOWER(email)
