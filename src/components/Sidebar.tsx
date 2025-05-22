@@ -3,7 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
-import { FileUp, Timeline, Home, Download } from "lucide-react";
+import { FileUp, GitBranch, Home, Download } from "lucide-react";
 
 interface AppSidebarProps {
   onUploadClick: () => void;
@@ -12,7 +12,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) {
   const sidebar = useSidebar();
-  const collapsed = sidebar ? sidebar.collapsed : false;
+  const collapsed = sidebar ? sidebar.collapsed === true : false;
   const { toast } = useToast();
 
   return (
@@ -41,7 +41,7 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) 
             className="w-full justify-start" 
             size={collapsed ? "icon" : "default"}
           >
-            <Timeline className="h-5 w-5" />
+            <GitBranch className="h-5 w-5" />
             {!collapsed && <span className="ml-2">Lineage</span>}
           </Button>
         </Link>

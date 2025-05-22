@@ -64,7 +64,7 @@ const LineageView = ({ mappingFile }: LineageViewProps) => {
       >
         <Controls />
         <MiniMap zoomable pannable />
-        <Background variant="dots" gap={12} size={1} />
+        <Background color="#aaa" gap={12} size={1} />
       </ReactFlow>
     </div>
   );

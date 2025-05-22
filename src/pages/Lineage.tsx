@@ -42,10 +42,17 @@ const Lineage = () => {
     loadData();
   }, [toast]);
 
+  const handleUploadClick = () => {
+    toast({
+      title: "Upload",
+      description: "Upload functionality not implemented in this view"
+    });
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        <AppSidebar onUploadClick={handleUploadClick} />
         
         <div className="flex-1 p-6">
           <div className="mb-6">
