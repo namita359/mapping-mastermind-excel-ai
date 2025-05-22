@@ -7,18 +7,20 @@ import UploadModal from "@/components/UploadModal";
 import DownloadButton from "@/components/DownloadButton";
 import ReviewPanel from "@/components/ReviewPanel";
 import AIAssistant from "@/components/AIAssistant";
+import AddMappingForm from "@/components/AddMappingForm";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
-import { Check, X, Filter } from "lucide-react";
+import { Check, X, Filter, Plus } from "lucide-react";
 
 const Mapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
   const [selectedRow, setSelectedRow] = useState<MappingRow | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAddMappingForm, setShowAddMappingForm] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
   const [searchResults, setSearchResults] = useState<MappingRow[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -191,6 +193,17 @@ const Mapping = () => {
     });
   };
 
+  // New handler for adding a mapping
+  const handleAddMapping = (newRow: MappingRow) => {
+    const updatedRows = [...mappingFile.rows, newRow];
+    setMappingFile({ ...mappingFile, rows: updatedRows });
+    
+    toast({
+      title: "Mapping Added",
+      description: `New mapping from ${newRow.sourceColumn.name} to ${newRow.targetColumn.name} added successfully.`,
+    });
+  };
+
   const getStatusCounts = () => {
     const counts = {
       approved: 0,
@@ -253,7 +266,7 @@ const Mapping = () => {
         />
         
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 border-b">
+          <div className="p-4 border-b bg-white shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h1 className="text-2xl font-bold">Source to Target Mapping</h1>
@@ -270,6 +283,10 @@ const Mapping = () => {
                 </Button>
                 
                 {hasData && <DownloadButton mappingFile={mappingFile} />}
+                
+                <Button onClick={() => setShowAddMappingForm(true)} className="bg-green-600 hover:bg-green-700">
+                  <Plus className="mr-2 h-4 w-4" /> Add Mapping
+                </Button>
                 
                 <Button onClick={() => setShowUploadModal(true)}>
                   Upload Mapping
@@ -371,23 +388,23 @@ const Mapping = () => {
             )}
           </div>
           
-          <div className="flex-1 overflow-hidden p-4">
+          <div className="flex-1 overflow-hidden">
             {hasData ? (
               <div className="h-full flex gap-4">
                 <div className={`${showAIAssistant ? 'w-2/3' : 'w-full'} overflow-hidden flex flex-col`}>
-                  <Tabs defaultValue="table" className="h-full flex flex-col">
+                  <Tabs defaultValue="table" className="h-full flex flex-col p-2">
                     <TabsList className="mb-2">
                       <TabsTrigger value="table">Table View</TabsTrigger>
                       <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="table" className="flex-1 overflow-auto">
+                    <TabsContent value="table" className="flex-1 overflow-auto bg-white rounded-lg shadow-md p-1 border">
                       <MappingTable 
                         rows={rowsToDisplay} 
                         onRowSelect={handleRowSelect}
                         onStatusChange={handleStatusChange}
                       />
                     </TabsContent>
-                    <TabsContent value="pending" className="flex-1 overflow-auto">
+                    <TabsContent value="pending" className="flex-1 overflow-auto bg-white rounded-lg shadow-md p-1 border">
                       <MappingTable 
                         rows={mappingFile.rows.filter(row => row.status === 'pending')} 
                         onRowSelect={handleRowSelect}
@@ -398,29 +415,38 @@ const Mapping = () => {
                 </div>
                 
                 {showAIAssistant ? (
-                  <div className="w-1/3">
-                    <AIAssistant onClose={() => setShowAIAssistant(false)} />
+                  <div className="w-1/3 p-2">
+                    <div className="h-full bg-white rounded-lg shadow-md border p-4">
+                      <AIAssistant onClose={() => setShowAIAssistant(false)} />
+                    </div>
                   </div>
                 ) : selectedRow ? (
-                  <div className="w-1/3">
-                    <ReviewPanel 
-                      selectedRow={selectedRow} 
-                      onStatusChange={handleStatusChange}
-                      onCommentAdd={handleCommentAdd}
-                    />
+                  <div className="w-1/3 p-2">
+                    <div className="h-full bg-white rounded-lg shadow-md border p-4">
+                      <ReviewPanel 
+                        selectedRow={selectedRow} 
+                        onStatusChange={handleStatusChange}
+                        onCommentAdd={handleCommentAdd}
+                      />
+                    </div>
                   </div>
                 ) : null}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full py-12 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+              <div className="flex flex-col items-center justify-center h-full py-12 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 m-4">
                 <div className="text-center max-w-md">
                   <h2 className="text-xl font-semibold mb-2">No Mapping Data Available</h2>
                   <p className="text-gray-500 mb-6">
-                    Upload a CSV or Excel file containing your source-to-target mappings to get started
+                    Upload a CSV or Excel file containing your source-to-target mappings to get started or add a mapping manually
                   </p>
-                  <Button onClick={() => setShowUploadModal(true)}>
-                    Upload Mapping File
-                  </Button>
+                  <div className="flex gap-3 justify-center">
+                    <Button onClick={() => setShowAddMappingForm(true)} className="bg-green-600 hover:bg-green-700">
+                      <Plus className="mr-2 h-4 w-4" /> Add Mapping
+                    </Button>
+                    <Button onClick={() => setShowUploadModal(true)}>
+                      Upload Mapping File
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
@@ -431,6 +457,13 @@ const Mapping = () => {
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
           onUpload={handleFileUpload}
+        />
+
+        <AddMappingForm
+          mappingFile={mappingFile}
+          onAddMapping={handleAddMapping}
+          isOpen={showAddMappingForm}
+          onClose={() => setShowAddMappingForm(false)}
         />
       </div>
     </SidebarProvider>
