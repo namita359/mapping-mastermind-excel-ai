@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Table,
@@ -22,6 +23,14 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { 
+  Pagination, 
+  PaginationContent, 
+  PaginationItem, 
+  PaginationLink, 
+  PaginationNext, 
+  PaginationPrevious 
+} from "@/components/ui/pagination";
 
 interface MappingTableProps {
   rows: MappingRow[];
@@ -40,11 +49,14 @@ type SortConfig = {
   direction: "asc" | "desc";
 };
 
+const ROWS_PER_PAGE = 10;
+
 const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) => {
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterConfig[]>([]);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const getStatusColor = (status: MappingStatus) => {
     switch (status) {
@@ -71,14 +83,17 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
       return [...filtered, filterConfig];
     });
     setActiveFilter(null);
+    setCurrentPage(1); // Reset to first page when filtering
   };
 
   const clearFilter = (column: string) => {
     setFilters(prev => prev.filter(f => f.column !== column));
+    setCurrentPage(1); // Reset to first page when clearing filters
   };
 
   const clearAllFilters = () => {
     setFilters([]);
+    setCurrentPage(1); // Reset to first page when clearing all filters
   };
 
   const applySort = (column: string) => {
@@ -195,7 +210,68 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
     }
   });
 
-  const displayedRows = sortedRows;
+  // Calculate pagination
+  const totalRows = sortedRows.length;
+  const totalPages = Math.ceil(totalRows / ROWS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ROWS_PER_PAGE, totalRows);
+  
+  // Get the current page of data
+  const paginatedRows = sortedRows.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if there are fewer than maxVisiblePages
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      // Calculate range around current page
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      
+      // Adjust if at the beginning or end
+      if (currentPage <= 2) {
+        endPage = Math.min(totalPages - 1, 4);
+      } else if (currentPage >= totalPages - 1) {
+        startPage = Math.max(2, totalPages - 3);
+      }
+      
+      // Add ellipsis if needed
+      if (startPage > 2) {
+        pages.push(-1); // Use -1 to indicate ellipsis
+      }
+      
+      // Add middle pages
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+      
+      // Add ellipsis if needed
+      if (endPage < totalPages - 1) {
+        pages.push(-2); // Use -2 to indicate ellipsis
+      }
+      
+      // Always show last page
+      if (totalPages > 1) {
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   // Column descriptions for tooltips
   const columnDescriptions = {
@@ -521,7 +597,7 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayedRows.map((row, index) => {
+            {paginatedRows.map((row, index) => {
               const podInfo = row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
               const malcodeInfo = row.comments?.find(c => c.startsWith("Malcode:"))?.replace("Malcode: ", "") || "";
               
@@ -534,7 +610,7 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                     selectedRowId === row.id ? "bg-blue-50" : ""
                   )}
                 >
-                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>{startIndex + index + 1}</TableCell>
                   <TableCell>
                     <TooltipProvider>
                       <Tooltip>
@@ -640,7 +716,7 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                 </TableRow>
               );
             })}
-            {displayedRows.length === 0 && (
+            {paginatedRows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   No records found. Try adjusting your filters.
@@ -650,6 +726,59 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
           </TableBody>
         </Table>
       </div>
+      
+      {totalRows > ROWS_PER_PAGE && (
+        <div className="mt-4">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage > 1) handlePageChange(currentPage - 1);
+                  }}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+              
+              {getPageNumbers().map((page, i) => (
+                <PaginationItem key={i}>
+                  {page === -1 || page === -2 ? (
+                    <span className="flex h-9 w-9 items-center justify-center">...</span>
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePageChange(page);
+                      }}
+                      isActive={page === currentPage}
+                    >
+                      {page}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (currentPage < totalPages) handlePageChange(currentPage + 1);
+                  }}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+          
+          <div className="text-sm text-center text-muted-foreground mt-2">
+            Showing {startIndex + 1} to {endIndex} of {totalRows} entries
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -3,46 +3,69 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/ui/sidebar";
-import { FileUp, Download, GitBranch } from "lucide-react";
+import { FileUp, Timeline, Home, Download } from "lucide-react";
 
 interface AppSidebarProps {
-  onUploadClick?: () => void;
+  onUploadClick: () => void;
   onDownloadClick?: () => void;
 }
 
 export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) {
   const sidebar = useSidebar();
-  const collapsed = sidebar?.collapsed || false;
+  const collapsed = sidebar ? sidebar.collapsed : false;
   const { toast } = useToast();
 
   return (
     <div className={`h-screen border-r bg-muted/40 ${collapsed ? "w-[60px]" : "w-[220px]"} flex flex-col p-2`}>
-      <div className="flex flex-col gap-1">
-        <Link to="/" className="w-full">
-          <Button variant="ghost" className="w-full justify-start">
-            <FileUp className="h-5 w-5 mr-2" />
-            <span className={`${collapsed ? "hidden" : "inline"}`}>Mapping</span>
-          </Button>
+      <div className="mb-4 flex items-center justify-center">
+        <Link to="/" className="flex items-center">
+          <FileUp className="h-6 w-6 text-primary" />
+          {!collapsed && <span className="ml-2 text-lg font-semibold">Data Mapper</span>}
         </Link>
-        
-        <Link to="/lineage" className="w-full">
-          <Button variant="ghost" className="w-full justify-start">
-            <GitBranch className="h-5 w-5 mr-2" />
-            <span className={`${collapsed ? "hidden" : "inline"}`}>Lineage</span>
-          </Button>
-        </Link>
+      </div>
 
-        {onUploadClick && (
-          <Button variant="ghost" className="w-full justify-start" onClick={onUploadClick}>
-            <FileUp className="h-5 w-5 mr-2" />
-            <span className={`${collapsed ? "hidden" : "inline"}`}>Upload</span>
+      <div className="flex flex-col gap-2">
+        <Link to="/">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start" 
+            size={collapsed ? "icon" : "default"}
+          >
+            <Home className="h-5 w-5" />
+            {!collapsed && <span className="ml-2">Mapping</span>}
           </Button>
-        )}
-        
+        </Link>
+        <Link to="/lineage">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start" 
+            size={collapsed ? "icon" : "default"}
+          >
+            <Timeline className="h-5 w-5" />
+            {!collapsed && <span className="ml-2">Lineage</span>}
+          </Button>
+        </Link>
+      </div>
+
+      <div className="mt-auto flex flex-col gap-2">
+        <Button 
+          variant="outline"
+          className="w-full justify-start" 
+          size={collapsed ? "icon" : "default"}
+          onClick={onUploadClick}
+        >
+          <FileUp className="h-5 w-5" />
+          {!collapsed && <span className="ml-2">Upload</span>}
+        </Button>
         {onDownloadClick && (
-          <Button variant="ghost" className="w-full justify-start" onClick={onDownloadClick}>
-            <Download className="h-5 w-5 mr-2" />
-            <span className={`${collapsed ? "hidden" : "inline"}`}>Download</span>
+          <Button 
+            variant="outline"
+            className="w-full justify-start" 
+            size={collapsed ? "icon" : "default"}
+            onClick={onDownloadClick}
+          >
+            <Download className="h-5 w-5" />
+            {!collapsed && <span className="ml-2">Download</span>}
           </Button>
         )}
       </div>
