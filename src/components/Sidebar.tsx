@@ -12,7 +12,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) {
   const sidebar = useSidebar();
-  const collapsed = sidebar ? sidebar.collapsed === true : false;
+  const collapsed = sidebar ? sidebar.state === "collapsed" : false;
   const { toast } = useToast();
 
   return (
