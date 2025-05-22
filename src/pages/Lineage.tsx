@@ -51,31 +51,33 @@ const Lineage = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex overflow-hidden">
         <AppSidebar onUploadClick={handleUploadClick} />
         
-        <div className="flex-1 p-6">
-          <div className="mb-6">
+        <div className="flex-1 flex flex-col overflow-hidden p-4">
+          <div className="mb-4">
             <h1 className="text-2xl font-bold">Data Lineage Visualization</h1>
             <p className="text-gray-500">
               Visualize source to target mapping relationships
             </p>
           </div>
           
-          {isLoading ? (
-            <div className="flex items-center justify-center h-[60vh]">
-              <div className="text-center">
-                <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p>Loading lineage data...</p>
+          <div className="flex-1 overflow-hidden">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p>Loading lineage data...</p>
+                </div>
               </div>
-            </div>
-          ) : mappingFile ? (
-            <LineageView mappingFile={mappingFile} />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 bg-gray-50 border border-dashed rounded-md">
-              <p className="text-lg text-gray-500">No mapping data available for lineage view</p>
-            </div>
-          )}
+            ) : mappingFile ? (
+              <LineageView mappingFile={mappingFile} />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 bg-gray-50 border border-dashed rounded-md h-full">
+                <p className="text-lg text-gray-500">No mapping data available for lineage view</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </SidebarProvider>

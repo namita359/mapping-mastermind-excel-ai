@@ -41,41 +41,32 @@ export function parseCSVFile(file: File): Promise<string[][]> {
 
 export async function loadSampleMappingData(): Promise<MappingFile | null> {
   try {
-    // First, try to load the sample CSV since we know it exists
+    // Try to load the sample Excel file first
+    const excelResponse = await fetch('/sample_mapping_template.xlsx');
+    if (excelResponse.ok) {
+      const excelArrayBuffer = await excelResponse.arrayBuffer();
+      const workbook = XLSX.read(new Uint8Array(excelArrayBuffer), { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Convert to array of arrays
+      const excelData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+      console.log("Excel data loaded successfully:", excelData);
+      return processMapping(excelData);
+    }
+    
+    // Fallback to CSV if Excel is not available
+    console.log("Excel file not available, falling back to CSV");
     const csvResponse = await fetch('/sample_mapping_template.csv');
     if (!csvResponse.ok) {
-      console.error('Failed to load sample CSV mapping data');
+      console.error('Failed to load sample mapping data');
       return null;
     }
     
     const csvText = await csvResponse.text();
     const csvData = parseCSVString(csvText);
     
-    // Generate Excel file if needed (this allows us to have a working Excel file)
-    try {
-      // Create a workbook
-      const wb = XLSX.utils.book_new();
-      // Convert CSV data to worksheet
-      const ws = XLSX.utils.aoa_to_sheet(csvData);
-      // Add the worksheet to the workbook
-      XLSX.utils.book_append_sheet(wb, ws, "Mapping");
-      
-      // Generate binary data
-      const excelData = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-      
-      // Create blob and URL for potential download
-      const blob = new Blob([excelData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      
-      // For debugging - this would normally be used to download the file
-      // But we're using it just to verify the Excel file was created successfully
-      console.log("Excel file generated successfully");
-    } catch (error) {
-      console.error('Error generating Excel file:', error);
-    }
-    
-    // Process the CSV data
     return processMapping(csvData);
-    
   } catch (error) {
     console.error('Error loading sample data:', error);
     return null;

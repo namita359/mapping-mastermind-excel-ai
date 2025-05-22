@@ -244,7 +244,7 @@ const Mapping = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex overflow-hidden">
         <AppSidebar
           onUploadClick={() => setShowUploadModal(true)}
           onDownloadClick={() => {
@@ -252,41 +252,41 @@ const Mapping = () => {
           }}
         />
         
-        <div className="flex-1 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold">Source to Target Mapping</h1>
-              <p className="text-gray-500">
-                {mappingFile.sourceSystem} → {mappingFile.targetSystem}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAIAssistant(!showAIAssistant)}
-              >
-                {showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
-              </Button>
-              
-              {hasData && <DownloadButton mappingFile={mappingFile} />}
-              
-              <Button onClick={() => setShowUploadModal(true)}>
-                Upload Mapping
-              </Button>
-            </div>
-          </div>
-
-          {hasData ? (
-            <>
-              <div className="mb-6">
-                <SearchBar 
-                  onSearch={handleSearch} 
-                  onAISearch={handleAISearch}
-                  loading={searchLoading} 
-                />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="p-4 border-b">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h1 className="text-2xl font-bold">Source to Target Mapping</h1>
+                <p className="text-gray-500">
+                  {mappingFile.sourceSystem} → {mappingFile.targetSystem}
+                </p>
               </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowAIAssistant(!showAIAssistant)}
+                >
+                  {showAIAssistant ? "Hide AI Assistant" : "Show AI Assistant"}
+                </Button>
+                
+                {hasData && <DownloadButton mappingFile={mappingFile} />}
+                
+                <Button onClick={() => setShowUploadModal(true)}>
+                  Upload Mapping
+                </Button>
+              </div>
+            </div>
 
-              <div className="mb-4 space-y-2">
+            {hasData && (
+              <SearchBar 
+                onSearch={handleSearch} 
+                onAISearch={handleAISearch}
+                loading={searchLoading} 
+              />
+            )}
+
+            {hasData && (
+              <div className="mt-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">Status:</span>
                   <Button 
@@ -368,22 +368,26 @@ const Mapping = () => {
                   </div>
                 )}
               </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <Tabs defaultValue="table">
-                    <TabsList>
+            )}
+          </div>
+          
+          <div className="flex-1 overflow-hidden p-4">
+            {hasData ? (
+              <div className="h-full flex gap-4">
+                <div className={`${showAIAssistant ? 'w-2/3' : 'w-full'} overflow-hidden flex flex-col`}>
+                  <Tabs defaultValue="table" className="h-full flex flex-col">
+                    <TabsList className="mb-2">
                       <TabsTrigger value="table">Table View</TabsTrigger>
                       <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="table" className="mt-4">
+                    <TabsContent value="table" className="flex-1 overflow-auto">
                       <MappingTable 
                         rows={rowsToDisplay} 
                         onRowSelect={handleRowSelect}
                         onStatusChange={handleStatusChange}
                       />
                     </TabsContent>
-                    <TabsContent value="pending" className="mt-4">
+                    <TabsContent value="pending" className="flex-1 overflow-auto">
                       <MappingTable 
                         rows={mappingFile.rows.filter(row => row.status === 'pending')} 
                         onRowSelect={handleRowSelect}
@@ -393,32 +397,34 @@ const Mapping = () => {
                   </Tabs>
                 </div>
                 
-                <div className="h-[600px]">
-                  {showAIAssistant ? (
+                {showAIAssistant ? (
+                  <div className="w-1/3">
                     <AIAssistant onClose={() => setShowAIAssistant(false)} />
-                  ) : (
+                  </div>
+                ) : selectedRow ? (
+                  <div className="w-1/3">
                     <ReviewPanel 
                       selectedRow={selectedRow} 
                       onStatusChange={handleStatusChange}
                       onCommentAdd={handleCommentAdd}
                     />
-                  )}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full py-12 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                <div className="text-center max-w-md">
+                  <h2 className="text-xl font-semibold mb-2">No Mapping Data Available</h2>
+                  <p className="text-gray-500 mb-6">
+                    Upload a CSV or Excel file containing your source-to-target mappings to get started
+                  </p>
+                  <Button onClick={() => setShowUploadModal(true)}>
+                    Upload Mapping File
+                  </Button>
                 </div>
               </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 px-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-              <div className="text-center max-w-md">
-                <h2 className="text-xl font-semibold mb-2">No Mapping Data Available</h2>
-                <p className="text-gray-500 mb-6">
-                  Upload a CSV or Excel file containing your source-to-target mappings to get started
-                </p>
-                <Button onClick={() => setShowUploadModal(true)}>
-                  Upload Mapping File
-                </Button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
         <UploadModal

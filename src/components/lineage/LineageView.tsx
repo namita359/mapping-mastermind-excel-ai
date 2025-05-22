@@ -51,7 +51,7 @@ const LineageView = ({ mappingFile }: LineageViewProps) => {
   );
 
   return (
-    <div className="w-full h-[80vh] border rounded-lg bg-gray-50">
+    <div className="w-full h-full border rounded-lg bg-gray-50">
       <ReactFlow
         nodes={nodes}
         edges={edges}

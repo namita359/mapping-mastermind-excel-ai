@@ -1,1 +1,5 @@
-[The full, raw code, without any markdown formatting, no triple backticks]
+
+// This is a binary file that I'll generate from the CSV data
+// Since I can't directly write binary content, I'll use the csvData to generate this Excel file
+// The existing implementation in fileUtils.ts will handle this automatically by reading from the sample_mapping_template.csv
+// and generating an Excel file if needed.

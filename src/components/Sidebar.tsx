@@ -16,11 +16,11 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) 
   const { toast } = useToast();
 
   return (
-    <div className={`h-screen border-r bg-muted/40 ${collapsed ? "w-[60px]" : "w-[220px]"} flex flex-col p-2`}>
+    <div className={`h-screen border-r bg-muted/40 ${collapsed ? "w-[60px]" : "w-[200px]"} flex flex-col p-2 flex-shrink-0`}>
       <div className="mb-4 flex items-center justify-center">
         <Link to="/" className="flex items-center">
-          <FileUp className="h-6 w-6 text-primary" />
-          {!collapsed && <span className="ml-2 text-lg font-semibold">Data Mapper</span>}
+          <FileUp className="h-5 w-5 text-primary" />
+          {!collapsed && <span className="ml-2 text-sm font-semibold">Data Mapper</span>}
         </Link>
       </div>
 
@@ -31,8 +31,8 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) 
             className="w-full justify-start" 
             size={collapsed ? "icon" : "default"}
           >
-            <Home className="h-5 w-5" />
-            {!collapsed && <span className="ml-2">Mapping</span>}
+            <Home className="h-4 w-4" />
+            {!collapsed && <span className="ml-2 text-sm">Mapping</span>}
           </Button>
         </Link>
         <Link to="/lineage">
@@ -41,8 +41,8 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) 
             className="w-full justify-start" 
             size={collapsed ? "icon" : "default"}
           >
-            <GitBranch className="h-5 w-5" />
-            {!collapsed && <span className="ml-2">Lineage</span>}
+            <GitBranch className="h-4 w-4" />
+            {!collapsed && <span className="ml-2 text-sm">Lineage</span>}
           </Button>
         </Link>
       </div>
@@ -54,8 +54,8 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) 
           size={collapsed ? "icon" : "default"}
           onClick={onUploadClick}
         >
-          <FileUp className="h-5 w-5" />
-          {!collapsed && <span className="ml-2">Upload</span>}
+          <FileUp className="h-4 w-4" />
+          {!collapsed && <span className="ml-2 text-sm">Upload</span>}
         </Button>
         {onDownloadClick && (
           <Button 
@@ -64,8 +64,8 @@ export function AppSidebar({ onUploadClick, onDownloadClick }: AppSidebarProps) 
             size={collapsed ? "icon" : "default"}
             onClick={onDownloadClick}
           >
-            <Download className="h-5 w-5" />
-            {!collapsed && <span className="ml-2">Download</span>}
+            <Download className="h-4 w-4" />
+            {!collapsed && <span className="ml-2 text-sm">Download</span>}
           </Button>
         )}
       </div>
