@@ -15,7 +15,7 @@ import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
 import { Check, X, Filter, Plus, Upload, Download, Sparkles, Menu, Info } from "lucide-react";
-import cn from "classnames";
+import { cn } from "@/lib/utils";
 
 const Mapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
