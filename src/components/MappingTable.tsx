@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Table,
@@ -82,26 +83,24 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
       return [...filtered, filterConfig];
     });
     setActiveFilter(null);
-    setCurrentPage(1); // Reset to first page when filtering
+    setCurrentPage(1);
   };
 
   const clearFilter = (column: string) => {
     setFilters(prev => prev.filter(f => f.column !== column));
-    setCurrentPage(1); // Reset to first page when clearing filters
+    setCurrentPage(1);
   };
 
   const clearAllFilters = () => {
     setFilters([]);
-    setCurrentPage(1); // Reset to first page when clearing all filters
+    setCurrentPage(1);
   };
 
   const applySort = (column: string) => {
     setSortConfig(prev => {
       if (prev && prev.column === column) {
-        // Toggle direction if clicking the same column
         return { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
       }
-      // Default to ascending for new sort column
       return { column, direction: 'asc' };
     });
   };
@@ -115,16 +114,21 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
     return filters.every(filter => {
       let value: string;
 
-      // Extract the value based on the column using the correct property names
       switch (filter.column) {
-        case "sourceColumn":
-          value = row.sourceColumn.column;
+        case "sourceMalcode":
+          value = row.sourceColumn.malcode;
           break;
         case "sourceTable":
           value = row.sourceColumn.table;
           break;
-        case "malcode":
-          value = row.sourceColumn.malcode;
+        case "sourceColumn":
+          value = row.sourceColumn.column;
+          break;
+        case "targetMalcode":
+          value = row.targetColumn.malcode;
+          break;
+        case "targetTable":
+          value = row.targetColumn.table;
           break;
         case "targetColumn":
           value = row.targetColumn.column;
@@ -132,11 +136,11 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
         case "transformation":
           value = row.transformation || "Direct Copy";
           break;
+        case "join":
+          value = row.join || "";
+          break;
         case "status":
           value = row.status;
-          break;
-        case "pod":
-          value = row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
           break;
         default:
           value = "";
@@ -167,19 +171,26 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
     let valueA: string;
     let valueB: string;
 
-    // Extract values based on the column using correct property names
     switch (sortConfig.column) {
-      case "sourceColumn":
-        valueA = a.sourceColumn.column;
-        valueB = b.sourceColumn.column;
+      case "sourceMalcode":
+        valueA = a.sourceColumn.malcode;
+        valueB = b.sourceColumn.malcode;
         break;
       case "sourceTable":
         valueA = a.sourceColumn.table;
         valueB = b.sourceColumn.table;
         break;
-      case "malcode":
-        valueA = a.sourceColumn.malcode;
-        valueB = b.sourceColumn.malcode;
+      case "sourceColumn":
+        valueA = a.sourceColumn.column;
+        valueB = b.sourceColumn.column;
+        break;
+      case "targetMalcode":
+        valueA = a.targetColumn.malcode;
+        valueB = b.targetColumn.malcode;
+        break;
+      case "targetTable":
+        valueA = a.targetColumn.table;
+        valueB = b.targetColumn.table;
         break;
       case "targetColumn":
         valueA = a.targetColumn.column;
@@ -189,13 +200,13 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
         valueA = a.transformation || "Direct Copy";
         valueB = b.transformation || "Direct Copy";
         break;
+      case "join":
+        valueA = a.join || "";
+        valueB = b.join || "";
+        break;
       case "status":
         valueA = a.status;
         valueB = b.status;
-        break;
-      case "pod":
-        valueA = a.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
-        valueB = b.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
         break;
       default:
         valueA = "";
@@ -215,55 +226,44 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
   const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
   const endIndex = Math.min(startIndex + ROWS_PER_PAGE, totalRows);
   
-  // Get the current page of data
   const paginatedRows = sortedRows.slice(startIndex, endIndex);
 
-  // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
-  // Generate page numbers for pagination
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
     
     if (totalPages <= maxVisiblePages) {
-      // Show all pages if there are fewer than maxVisiblePages
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
       }
     } else {
-      // Always show first page
       pages.push(1);
       
-      // Calculate range around current page
       let startPage = Math.max(2, currentPage - 1);
       let endPage = Math.min(totalPages - 1, currentPage + 1);
       
-      // Adjust if at the beginning or end
       if (currentPage <= 2) {
         endPage = Math.min(totalPages - 1, 4);
       } else if (currentPage >= totalPages - 1) {
         startPage = Math.max(2, totalPages - 3);
       }
       
-      // Add ellipsis if needed
       if (startPage > 2) {
-        pages.push(-1); // Use -1 to indicate ellipsis
+        pages.push(-1);
       }
       
-      // Add middle pages
       for (let i = startPage; i <= endPage; i++) {
         pages.push(i);
       }
       
-      // Add ellipsis if needed
       if (endPage < totalPages - 1) {
-        pages.push(-2); // Use -2 to indicate ellipsis
+        pages.push(-2);
       }
       
-      // Always show last page
       if (totalPages > 1) {
         pages.push(totalPages);
       }
@@ -274,13 +274,14 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
 
   // Column descriptions for tooltips
   const columnDescriptions = {
-    pod: "Program of Data - Represents the business program or domain",
-    malcode: "Management Area Logical Code - Unique identifier for a business area",
-    sourceColumn: "The source database column name",
+    sourceMalcode: "Source Management Area Logical Code - Unique identifier for source business area",
     sourceTable: "The source database table name",
+    sourceColumn: "The source database column name",
+    targetMalcode: "Target Management Area Logical Code - Unique identifier for target business area",
+    targetTable: "The target database table name",
     targetColumn: "The target database column name to map to",
-    targetTable: "The target database table that will receive the data",
     transformation: "Logic applied to transform source data to target format",
+    join: "Join conditions used in the mapping",
     status: "Current review status of the mapping",
   };
 
@@ -296,7 +297,6 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
       <Popover open={activeFilter === column} onOpenChange={(open) => {
         if (open) {
           setActiveFilter(column);
-          // Set initial values from existing filter if any
           if (activeColumnFilter) {
             setFilterValue(activeColumnFilter.value);
             setFilterOperator(activeColumnFilter.operator);
@@ -402,205 +402,265 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
       )}
 
       <div className="rounded-md border bg-white overflow-hidden">
-        <Table>
-          <TableHeader className="bg-gray-50">
-            <TableRow>
-              <TableHead className="w-[40px]">#</TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">Pod</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{columnDescriptions.pod}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "pod" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("pod")}
-                    >
-                      {sortConfig?.column === "pod" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="pod" />
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-gray-50">
+              <TableRow>
+                <TableHead className="w-[40px]">#</TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Source Malcode</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.sourceMalcode}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "sourceMalcode" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("sourceMalcode")}
+                      >
+                        {sortConfig?.column === "sourceMalcode" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="sourceMalcode" />
+                    </div>
                   </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">Malcode</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{columnDescriptions.malcode}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "malcode" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("malcode")}
-                    >
-                      {sortConfig?.column === "malcode" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="malcode" />
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Source Table</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.sourceTable}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "sourceTable" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("sourceTable")}
+                      >
+                        {sortConfig?.column === "sourceTable" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="sourceTable" />
+                    </div>
                   </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">Source Column</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{columnDescriptions.sourceColumn}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "sourceColumn" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("sourceColumn")}
-                    >
-                      {sortConfig?.column === "sourceColumn" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="sourceColumn" />
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Source Column</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.sourceColumn}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "sourceColumn" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("sourceColumn")}
+                      >
+                        {sortConfig?.column === "sourceColumn" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="sourceColumn" />
+                    </div>
                   </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">Target Column</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{columnDescriptions.targetColumn}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "targetColumn" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("targetColumn")}
-                    >
-                      {sortConfig?.column === "targetColumn" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="targetColumn" />
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Target Malcode</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.targetMalcode}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "targetMalcode" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("targetMalcode")}
+                      >
+                        {sortConfig?.column === "targetMalcode" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="targetMalcode" />
+                    </div>
                   </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">Transformation</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{columnDescriptions.transformation}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "transformation" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("transformation")}
-                    >
-                      {sortConfig?.column === "transformation" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="transformation" />
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Target Table</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.targetTable}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "targetTable" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("targetTable")}
+                      >
+                        {sortConfig?.column === "targetTable" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="targetTable" />
+                    </div>
                   </div>
-                </div>
-              </TableHead>
-              <TableHead>
-                <div className="flex items-center">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">Status</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{columnDescriptions.status}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  <div className="flex">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      className={cn(
-                        "h-8 w-8 p-0 ml-1",
-                        sortConfig?.column === "status" ? "text-primary" : "text-muted-foreground"
-                      )}
-                      onClick={() => applySort("status")}
-                    >
-                      {sortConfig?.column === "status" && sortConfig?.direction === "asc" ? 
-                        <SortAsc className="h-4 w-4" /> : 
-                        <SortDesc className="h-4 w-4" />
-                      }
-                    </Button>
-                    <FilterMenu column="status" />
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Target Column</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.targetColumn}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "targetColumn" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("targetColumn")}
+                      >
+                        {sortConfig?.column === "targetColumn" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="targetColumn" />
+                    </div>
                   </div>
-                </div>
-              </TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedRows.map((row, index) => {
-              const podInfo = row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
-              const malcodeInfo = row.sourceColumn.malcode;
-              
-              return (
+                </TableHead>
+                <TableHead className="min-w-[150px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Transformation</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.transformation}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "transformation" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("transformation")}
+                      >
+                        {sortConfig?.column === "transformation" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="transformation" />
+                    </div>
+                  </div>
+                </TableHead>
+                <TableHead className="min-w-[120px]">
+                  <div className="flex items-center">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">Join</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{columnDescriptions.join}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <div className="flex">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 ml-1",
+                          sortConfig?.column === "join" ? "text-primary" : "text-muted-foreground"
+                        )}
+                        onClick={() => applySort("join")}
+                      >
+                        {sortConfig?.column === "join" && sortConfig?.direction === "asc" ? 
+                          <SortAsc className="h-4 w-4" /> : 
+                          <SortDesc className="h-4 w-4" />
+                        }
+                      </Button>
+                      <FilterMenu column="join" />
+                    </div>
+                  </div>
+                </TableHead>
+                <TableHead className="w-[100px]">Status</TableHead>
+                <TableHead className="w-[80px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedRows.map((row, index) => (
                 <TableRow 
                   key={row.id} 
                   onClick={() => handleRowClick(row)}
@@ -609,60 +669,14 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                     selectedRowId === row.id ? "bg-blue-50" : ""
                   )}
                 >
-                  <TableCell>{startIndex + index + 1}</TableCell>
-                  <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-help">{podInfo}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Pod: {podInfo}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-help">{malcodeInfo}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Malcode: {malcodeInfo}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-help">{row.sourceColumn.column}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Source Column: {row.sourceColumn.column}</p>
-                          <p>Data Type: {row.sourceColumn.dataType}</p>
-                          <p>Table: {row.sourceColumn.table}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="cursor-help">{row.targetColumn.column}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Target Column: {row.targetColumn.column}</p>
-                          <p>Data Type: {row.targetColumn.dataType}</p>
-                          <p>Table: {row.targetColumn.table}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
+                  <TableCell className="text-sm">{startIndex + index + 1}</TableCell>
+                  <TableCell className="font-medium text-sm">{row.sourceColumn.malcode}</TableCell>
+                  <TableCell className="text-sm">{row.sourceColumn.table}</TableCell>
+                  <TableCell className="font-medium text-sm">{row.sourceColumn.column}</TableCell>
+                  <TableCell className="font-medium text-sm">{row.targetColumn.malcode}</TableCell>
+                  <TableCell className="text-sm">{row.targetColumn.table}</TableCell>
+                  <TableCell className="font-medium text-sm">{row.targetColumn.column}</TableCell>
+                  <TableCell className="text-sm max-w-[150px] truncate">
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -674,8 +688,24 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                       </Tooltip>
                     </TooltipProvider>
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {row.join ? (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="cursor-help text-blue-600 truncate block max-w-[120px]">{row.join}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{row.join}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(row.status)}>
+                    <Badge className={getStatusColor(row.status)} variant="outline">
                       {row.status.charAt(0).toUpperCase() + row.status.slice(1)}
                     </Badge>
                   </TableCell>
@@ -713,17 +743,17 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-            {paginatedRows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                  No records found. Try adjusting your filters.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+              {paginatedRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    No records found. Try adjusting your filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       
       {totalRows > ROWS_PER_PAGE && (

@@ -15,6 +15,7 @@ import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
 import { Check, X, Filter, Plus, Upload, Download, Sparkles, Menu, Info } from "lucide-react";
+import cn from "classnames";
 
 const Mapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
@@ -247,9 +248,9 @@ const Mapping = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b flex-shrink-0">
         <div className="px-4 py-3">
           <div className="flex justify-between items-center">
             {/* Left side - Logo and Navigation */}
@@ -370,10 +371,10 @@ const Mapping = () => {
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Collapsible Sidebar */}
         {showSidebar && (
-          <div className="w-64 bg-white border-r shadow-sm">
+          <div className="w-64 bg-white border-r shadow-sm flex-shrink-0">
             <SidebarProvider>
               <AppSidebar
                 onUploadClick={() => setShowUploadModal(true)}
@@ -384,45 +385,52 @@ const Mapping = () => {
         )}
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-w-0">
           {hasData ? (
-            <div className="flex-1 flex">
+            <div className="flex-1 flex overflow-hidden">
               {/* Main Table Area */}
-              <div className={`${showAIAssistant || selectedRow ? 'flex-1' : 'w-full'} overflow-hidden flex flex-col p-4`}>
+              <div className={cn(
+                "flex flex-col overflow-hidden p-4 min-w-0",
+                showAIAssistant || selectedRow ? 'flex-1' : 'w-full'
+              )}>
                 <Tabs defaultValue="table" className="h-full flex flex-col">
-                  <TabsList className="mb-4">
+                  <TabsList className="mb-4 flex-shrink-0">
                     <TabsTrigger value="table">All Mappings ({rowsToDisplay.length})</TabsTrigger>
                     <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
                   </TabsList>
                   
-                  <TabsContent value="table" className="flex-1 overflow-auto bg-white rounded-lg shadow-sm border">
-                    <MappingTable 
-                      rows={rowsToDisplay} 
-                      onRowSelect={handleRowSelect}
-                      onStatusChange={handleStatusChange}
-                    />
+                  <TabsContent value="table" className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border">
+                    <div className="h-full overflow-auto">
+                      <MappingTable 
+                        rows={rowsToDisplay} 
+                        onRowSelect={handleRowSelect}
+                        onStatusChange={handleStatusChange}
+                      />
+                    </div>
                   </TabsContent>
                   
-                  <TabsContent value="pending" className="flex-1 overflow-auto bg-white rounded-lg shadow-sm border">
-                    <MappingTable 
-                      rows={mappingFile.rows.filter(row => row.status === 'pending')} 
-                      onRowSelect={handleRowSelect}
-                      onStatusChange={handleStatusChange}
-                    />
+                  <TabsContent value="pending" className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border">
+                    <div className="h-full overflow-auto">
+                      <MappingTable 
+                        rows={mappingFile.rows.filter(row => row.status === 'pending')} 
+                        onRowSelect={handleRowSelect}
+                        onStatusChange={handleStatusChange}
+                      />
+                    </div>
                   </TabsContent>
                 </Tabs>
               </div>
               
               {/* Right Panel - AI Assistant or Review Panel */}
               {showAIAssistant ? (
-                <div className="w-96 p-4">
-                  <div className="h-full bg-white rounded-lg shadow-sm border">
+                <div className="w-96 flex-shrink-0 p-4">
+                  <div className="h-full bg-white rounded-lg shadow-sm border overflow-hidden">
                     <AIAssistant onClose={() => setShowAIAssistant(false)} />
                   </div>
                 </div>
               ) : selectedRow ? (
-                <div className="w-96 p-4">
-                  <div className="h-full bg-white rounded-lg shadow-sm border">
+                <div className="w-96 flex-shrink-0 p-4">
+                  <div className="h-full bg-white rounded-lg shadow-sm border overflow-hidden">
                     <ReviewPanel 
                       selectedRow={selectedRow} 
                       onStatusChange={handleStatusChange}
