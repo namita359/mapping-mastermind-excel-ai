@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
@@ -24,35 +23,35 @@ const Mapping = () => {
   const [statusFilter, setStatusFilter] = useState<MappingStatus | null>(null);
   const { toast } = useToast();
 
-  // Load sample data when component mounts
+  // Load data from Excel file when component mounts
   useEffect(() => {
     const loadInitialData = async () => {
-      console.log("Loading initial data...");
+      console.log("Loading data from Excel file...");
       setIsLoading(true);
       
       try {
-        const sampleData = await loadSampleMappingData();
-        console.log("Sample data loaded:", sampleData);
+        const excelData = await loadSampleMappingData();
+        console.log("Excel data loaded:", excelData);
         
-        if (sampleData && sampleData.rows.length > 0) {
-          setMappingFile(sampleData);
+        if (excelData && excelData.rows.length > 0) {
+          setMappingFile(excelData);
           toast({
-            title: "Sample data loaded",
-            description: `${sampleData.rows.length} mappings loaded from sample data`,
+            title: "Excel data loaded",
+            description: `${excelData.rows.length} mappings loaded from data.xlsx`,
           });
         } else {
-          console.error("No sample data was loaded or data was empty");
+          console.error("No Excel data was loaded or data was empty");
           toast({
-            title: "Error loading sample data",
-            description: "Could not load sample data, please try uploading a file",
+            title: "No Excel data found",
+            description: "Could not load data.xlsx. Please ensure the file exists in the public folder with the correct columns.",
             variant: "destructive"
           });
         }
       } catch (error) {
-        console.error("Error loading sample data:", error);
+        console.error("Error loading Excel data:", error);
         toast({
-          title: "Error loading sample data",
-          description: "An error occurred while loading sample data",
+          title: "Error loading Excel data",
+          description: "An error occurred while loading data.xlsx",
           variant: "destructive"
         });
       } finally {
@@ -234,7 +233,7 @@ const Mapping = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Loading mapping data...</h2>
+          <h2 className="text-xl font-semibold mb-2">Loading Excel data...</h2>
           <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto"></div>
         </div>
       </div>
