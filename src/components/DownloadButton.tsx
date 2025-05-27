@@ -13,9 +13,10 @@ import { MappingFile } from "@/lib/types";
 
 interface DownloadButtonProps {
   mappingFile: MappingFile;
+  children?: React.ReactNode;
 }
 
-const DownloadButton = ({ mappingFile }: DownloadButtonProps) => {
+const DownloadButton = ({ mappingFile, children }: DownloadButtonProps) => {
   const [downloading, setDownloading] = useState(false);
   const { toast } = useToast();
 
@@ -56,11 +57,11 @@ const DownloadButton = ({ mappingFile }: DownloadButtonProps) => {
       // Create CSV header
       const header = "Source Column,Source Data Type,Target Column,Target Data Type,Transformation,Status\n";
       
-      // Create CSV rows
+      // Create CSV rows using the correct property names
       const rows = mappingFile.rows.map(row => [
-        row.sourceColumn.name,
+        `${row.sourceColumn.malcode}.${row.sourceColumn.table}.${row.sourceColumn.column}`,
         row.sourceColumn.dataType,
-        row.targetColumn.name,
+        `${row.targetColumn.malcode}.${row.targetColumn.table}.${row.targetColumn.column}`,
         row.targetColumn.dataType,
         row.transformation || "Direct Copy",
         row.status
@@ -93,6 +94,24 @@ const DownloadButton = ({ mappingFile }: DownloadButtonProps) => {
       setDownloading(false);
     }
   };
+
+  if (children) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          {children}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={downloadAsCsv}>
+            Download as CSV
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={downloadAsJson}>
+            Download as JSON
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
   return (
     <DropdownMenu>

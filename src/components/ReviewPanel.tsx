@@ -63,19 +63,17 @@ const ReviewPanel = ({ selectedRow, onStatusChange, onCommentAdd }: ReviewPanelP
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
           <h4 className="text-sm font-medium text-gray-500">Source Column</h4>
-          <p className="font-medium">{selectedRow.sourceColumn.name}</p>
+          <p className="font-medium">{selectedRow.sourceColumn.column}</p>
           <p className="text-sm text-gray-600">{selectedRow.sourceColumn.dataType}</p>
-          {selectedRow.sourceColumn.description && (
-            <p className="text-sm text-gray-500 mt-1">{selectedRow.sourceColumn.description}</p>
-          )}
+          <p className="text-sm text-gray-500 mt-1">Table: {selectedRow.sourceColumn.table}</p>
+          <p className="text-sm text-gray-500">Malcode: {selectedRow.sourceColumn.malcode}</p>
         </div>
         <div>
           <h4 className="text-sm font-medium text-gray-500">Target Column</h4>
-          <p className="font-medium">{selectedRow.targetColumn.name}</p>
+          <p className="font-medium">{selectedRow.targetColumn.column}</p>
           <p className="text-sm text-gray-600">{selectedRow.targetColumn.dataType}</p>
-          {selectedRow.targetColumn.description && (
-            <p className="text-sm text-gray-500 mt-1">{selectedRow.targetColumn.description}</p>
-          )}
+          <p className="text-sm text-gray-500 mt-1">Table: {selectedRow.targetColumn.table}</p>
+          <p className="text-sm text-gray-500">Malcode: {selectedRow.targetColumn.malcode}</p>
         </div>
       </div>
 

@@ -22,8 +22,8 @@ export const createLineageGraph = (mappingFile: MappingFile) => {
   
   // Extract unique source and target tables with their columns
   mappingFile.rows.forEach(row => {
-    const sourceTable = extractTableFromDescription(row.sourceColumn.description || '');
-    const targetTable = row.targetColumn.name.split('.')[0]; // Assuming format is "table.column"
+    const sourceTable = row.sourceColumn.table;
+    const targetTable = row.targetColumn.table;
     
     // Add source table nodes if not already added
     if (!sourceTables.has(sourceTable)) {
@@ -37,7 +37,7 @@ export const createLineageGraph = (mappingFile: MappingFile) => {
           type: 'source',
           columns: [],
           pod: row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", ""),
-          malcode: row.comments?.find(c => c.startsWith("Malcode:"))?.replace("Malcode: ", "")
+          malcode: row.sourceColumn.malcode
         },
         position: { x: 100, y: sourceTables.size * 150 }
       });
@@ -61,13 +61,13 @@ export const createLineageGraph = (mappingFile: MappingFile) => {
     
     // Add column to the respective table's columns list
     const sourceNodeIndex = sourceTables.get(sourceTable)!;
-    const sourceColumn = row.sourceColumn.name;
+    const sourceColumn = row.sourceColumn.column;
     if (!nodes[sourceNodeIndex].data.columns!.includes(sourceColumn)) {
       nodes[sourceNodeIndex].data.columns!.push(sourceColumn);
     }
     
     const targetNodeIndex = targetTables.get(targetTable)!;
-    const targetColumn = row.targetColumn.name;
+    const targetColumn = row.targetColumn.column;
     if (!nodes[targetNodeIndex].data.columns!.includes(targetColumn)) {
       nodes[targetNodeIndex].data.columns!.push(targetColumn);
     }

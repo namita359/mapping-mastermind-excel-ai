@@ -98,7 +98,7 @@ function processMapping(data: string[][]): MappingFile | null {
   const sourceSystem = systemPairs[0]?.source || "Source System";
   const targetSystem = systemPairs[0]?.target || "Target System";
   
-  // Convert to MappingFile format
+  // Convert to MappingFile format with correct structure
   const mappingFile: MappingFile = {
     id: `file-${Date.now()}`,
     name: "Sample Mapping Data",
@@ -108,17 +108,22 @@ function processMapping(data: string[][]): MappingFile | null {
       id: `row-${Date.now()}-${index}`,
       sourceColumn: {
         id: `src-${Date.now()}-${index}`,
-        name: mapping.sourceColumn,
-        dataType: "VARCHAR", // Default type
-        description: `${mapping.pod} - ${mapping.malcode}`,
+        malcode: mapping.malcode,
+        table: mapping.sourceTable,
+        column: mapping.sourceColumn,
+        dataType: "VARCHAR",
+        sourceType: "SRZ_ADLS" as const,
       },
       targetColumn: {
         id: `tgt-${Date.now()}-${index}`,
-        name: mapping.targetColumn,
-        dataType: "VARCHAR", // Default type
+        malcode: mapping.malcode,
+        table: mapping.targetTable,
+        column: mapping.targetColumn,
+        dataType: "VARCHAR",
+        targetType: "CZ_ADLS" as const,
       },
       transformation: mapping.transformation,
-      status: "pending",
+      status: "pending" as const,
       createdBy: "Sample Data",
       createdAt: new Date(),
       comments: [`Pod: ${mapping.pod}`, `Malcode: ${mapping.malcode}`]

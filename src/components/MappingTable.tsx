@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Table,
@@ -116,19 +115,19 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
     return filters.every(filter => {
       let value: string;
 
-      // Extract the value based on the column
+      // Extract the value based on the column using the correct property names
       switch (filter.column) {
         case "sourceColumn":
-          value = row.sourceColumn.name;
+          value = row.sourceColumn.column;
           break;
         case "sourceTable":
-          value = row.sourceColumn.description?.split(" - ")[0] || "";
+          value = row.sourceColumn.table;
           break;
         case "malcode":
-          value = row.sourceColumn.description?.split(" - ")[1] || "";
+          value = row.sourceColumn.malcode;
           break;
         case "targetColumn":
-          value = row.targetColumn.name;
+          value = row.targetColumn.column;
           break;
         case "transformation":
           value = row.transformation || "Direct Copy";
@@ -168,23 +167,23 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
     let valueA: string;
     let valueB: string;
 
-    // Extract values based on the column
+    // Extract values based on the column using correct property names
     switch (sortConfig.column) {
       case "sourceColumn":
-        valueA = a.sourceColumn.name;
-        valueB = b.sourceColumn.name;
+        valueA = a.sourceColumn.column;
+        valueB = b.sourceColumn.column;
         break;
       case "sourceTable":
-        valueA = a.sourceColumn.description?.split(" - ")[0] || "";
-        valueB = b.sourceColumn.description?.split(" - ")[0] || "";
+        valueA = a.sourceColumn.table;
+        valueB = b.sourceColumn.table;
         break;
       case "malcode":
-        valueA = a.sourceColumn.description?.split(" - ")[1] || "";
-        valueB = b.sourceColumn.description?.split(" - ")[1] || "";
+        valueA = a.sourceColumn.malcode;
+        valueB = b.sourceColumn.malcode;
         break;
       case "targetColumn":
-        valueA = a.targetColumn.name;
-        valueB = b.targetColumn.name;
+        valueA = a.targetColumn.column;
+        valueB = b.targetColumn.column;
         break;
       case "transformation":
         valueA = a.transformation || "Direct Copy";
@@ -599,7 +598,7 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
           <TableBody>
             {paginatedRows.map((row, index) => {
               const podInfo = row.comments?.find(c => c.startsWith("Pod:"))?.replace("Pod: ", "") || "";
-              const malcodeInfo = row.comments?.find(c => c.startsWith("Malcode:"))?.replace("Malcode: ", "") || "";
+              const malcodeInfo = row.sourceColumn.malcode;
               
               return (
                 <TableRow 
@@ -639,12 +638,12 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help">{row.sourceColumn.name}</span>
+                          <span className="cursor-help">{row.sourceColumn.column}</span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Source Column: {row.sourceColumn.name}</p>
+                          <p>Source Column: {row.sourceColumn.column}</p>
                           <p>Data Type: {row.sourceColumn.dataType}</p>
-                          {row.sourceColumn.description && <p>Description: {row.sourceColumn.description}</p>}
+                          <p>Table: {row.sourceColumn.table}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -653,12 +652,12 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="cursor-help">{row.targetColumn.name}</span>
+                          <span className="cursor-help">{row.targetColumn.column}</span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Target Column: {row.targetColumn.name}</p>
+                          <p>Target Column: {row.targetColumn.column}</p>
                           <p>Data Type: {row.targetColumn.dataType}</p>
-                          {row.targetColumn.description && <p>Description: {row.targetColumn.description}</p>}
+                          <p>Table: {row.targetColumn.table}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
