@@ -1,22 +1,15 @@
+
 import { useState, useEffect } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
-import MappingTable from "@/components/MappingTable";
-import SearchBar from "@/components/SearchBar";
-import UploadModal from "@/components/UploadModal";
-import DownloadButton from "@/components/DownloadButton";
-import ReviewPanel from "@/components/ReviewPanel";
-import AIAssistant from "@/components/AIAssistant";
-import AddMappingForm from "@/components/AddMappingForm";
-import TestDataGenerator from "@/components/TestDataGenerator";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import MappingHeader from "@/components/MappingHeader";
+import MappingFilters from "@/components/MappingFilters";
+import MappingContent from "@/components/MappingContent";
+import MappingModals from "@/components/MappingModals";
+import MappingEmptyState from "@/components/MappingEmptyState";
 import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
-import { Check, X, Filter, Plus, Upload, Download, Sparkles, Menu, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const Mapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
@@ -251,125 +244,30 @@ const Mapping = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header Navigation */}
-      <header className="bg-white shadow-sm border-b flex-shrink-0">
-        <div className="px-4 py-3">
-          <div className="flex justify-between items-center">
-            {/* Left side - Logo and Navigation */}
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSidebar(!showSidebar)}
-                >
-                  <Menu className="h-4 w-4" />
-                </Button>
-                <h1 className="text-xl font-bold text-gray-900">Data Mapping Hub</h1>
-              </div>
-              
-              <nav className="hidden md:flex items-center gap-4">
-                <Button variant="ghost" size="sm" className="text-blue-600 bg-blue-50">
-                  Mappings
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Lineage
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Governance
-                </Button>
-              </nav>
-            </div>
+      <MappingHeader
+        showSidebar={showSidebar}
+        setShowSidebar={setShowSidebar}
+        hasData={hasData}
+        mappingFile={mappingFile}
+        onUploadClick={() => setShowUploadModal(true)}
+        onAddMappingClick={() => setShowAddMappingForm(true)}
+        onAIAssistantToggle={() => setShowAIAssistant(!showAIAssistant)}
+        showAIAssistant={showAIAssistant}
+        onSearch={handleSearch}
+        onAISearch={handleAISearch}
+        searchLoading={searchLoading}
+      />
 
-            {/* Right side - Actions */}
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowAIAssistant(!showAIAssistant)}
-                className="text-purple-600 border-purple-200 hover:bg-purple-50"
-              >
-                <Sparkles className="mr-1 h-4 w-4" />
-                AI Assistant
-              </Button>
-              
-              {hasData && (
-                <DownloadButton mappingFile={mappingFile}>
-                  <Button variant="outline" size="sm">
-                    <Download className="mr-1 h-4 w-4" />
-                    Export
-                  </Button>
-                </DownloadButton>
-              )}
-              
-              <Button onClick={() => setShowAddMappingForm(true)} size="sm" className="bg-green-600 hover:bg-green-700">
-                <Plus className="mr-1 h-4 w-4" /> Add Mapping
-              </Button>
-              
-              <Button onClick={() => setShowUploadModal(true)} size="sm">
-                <Upload className="mr-1 h-4 w-4" /> Upload
-              </Button>
-            </div>
-          </div>
-
-          {/* Subtitle and context */}
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">SRZ (Raw Zone)</span> → <span className="font-medium">CZ/Synapse (Target)</span>
-              </p>
-              <Badge variant="outline" className="text-xs">
-                <Info className="mr-1 h-3 w-3" />
-                {mappingFile.rows.length} Total Mappings
-              </Badge>
-            </div>
-            
-            {hasData && (
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant={statusFilter === "approved" ? "default" : "outline"} 
-                  size="sm"
-                  className={`text-xs ${statusFilter === "approved" ? "bg-green-600 hover:bg-green-700" : "bg-green-50 text-green-800 hover:bg-green-100"}`}
-                  onClick={() => handleStatusFilterClick("approved")}
-                >
-                  <Check className="h-3 w-3 mr-1" />
-                  {counts.approved}
-                </Button>
-                
-                <Button 
-                  variant={statusFilter === "pending" ? "default" : "outline"} 
-                  size="sm"
-                  className={`text-xs ${statusFilter === "pending" ? "bg-yellow-600 hover:bg-yellow-700" : "bg-yellow-50 text-yellow-800 hover:bg-yellow-100"}`}
-                  onClick={() => handleStatusFilterClick("pending")}
-                >
-                  <Filter className="h-3 w-3 mr-1" />
-                  {counts.pending}
-                </Button>
-                
-                <Button 
-                  variant={statusFilter === "rejected" ? "default" : "outline"} 
-                  size="sm"
-                  className={`text-xs ${statusFilter === "rejected" ? "bg-red-600 hover:bg-red-700" : "bg-red-50 text-red-800 hover:bg-red-100"}`}
-                  onClick={() => handleStatusFilterClick("rejected")}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  {counts.rejected}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Search Bar */}
-          {hasData && (
-            <div className="mt-4">
-              <SearchBar 
-                onSearch={handleSearch} 
-                onAISearch={handleAISearch}
-                loading={searchLoading} 
-              />
-            </div>
-          )}
+      {/* Status Filters - only show when data exists */}
+      {hasData && (
+        <div className="bg-white border-b px-4 py-2 flex justify-end">
+          <MappingFilters
+            counts={counts}
+            statusFilter={statusFilter}
+            onStatusFilterClick={handleStatusFilterClick}
+          />
         </div>
-      </header>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -388,99 +286,35 @@ const Mapping = () => {
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden min-w-0">
           {hasData ? (
-            <div className="flex-1 flex overflow-hidden">
-              {/* Main Table Area */}
-              <div className={cn(
-                "flex flex-col overflow-hidden p-4 min-w-0",
-                showAIAssistant || selectedRow ? 'flex-1' : 'w-full'
-              )}>
-                <Tabs defaultValue="table" className="h-full flex flex-col">
-                  <TabsList className="mb-4 flex-shrink-0">
-                    <TabsTrigger value="table">All Mappings ({rowsToDisplay.length})</TabsTrigger>
-                    <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
-                    <TabsTrigger value="testing">Test & Validate</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="table" className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border">
-                    <div className="h-full overflow-auto">
-                      <MappingTable 
-                        rows={rowsToDisplay} 
-                        onRowSelect={handleRowSelect}
-                        onStatusChange={handleStatusChange}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="pending" className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border">
-                    <div className="h-full overflow-auto">
-                      <MappingTable 
-                        rows={mappingFile.rows.filter(row => row.status === 'pending')} 
-                        onRowSelect={handleRowSelect}
-                        onStatusChange={handleStatusChange}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="testing" className="flex-1 overflow-hidden">
-                    <div className="h-full overflow-auto">
-                      <TestDataGenerator mappingFile={mappingFile} />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
-              
-              {/* Right Panel - AI Assistant or Review Panel */}
-              {showAIAssistant ? (
-                <div className="w-96 flex-shrink-0 p-4">
-                  <div className="h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-                    <AIAssistant onClose={() => setShowAIAssistant(false)} />
-                  </div>
-                </div>
-              ) : selectedRow ? (
-                <div className="w-96 flex-shrink-0 p-4">
-                  <div className="h-full bg-white rounded-lg shadow-sm border overflow-hidden">
-                    <ReviewPanel 
-                      selectedRow={selectedRow} 
-                      onStatusChange={handleStatusChange}
-                      onCommentAdd={handleCommentAdd}
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
+            <MappingContent
+              mappingFile={mappingFile}
+              rowsToDisplay={rowsToDisplay}
+              counts={counts}
+              selectedRow={selectedRow}
+              showAIAssistant={showAIAssistant}
+              onRowSelect={handleRowSelect}
+              onStatusChange={handleStatusChange}
+              onCommentAdd={handleCommentAdd}
+              onAIAssistantClose={() => setShowAIAssistant(false)}
+            />
           ) : (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center max-w-md">
-                <h2 className="text-xl font-semibold mb-2">No Mapping Data Available</h2>
-                <p className="text-gray-500 mb-6">
-                  Upload a CSV or Excel file containing your source-to-target mappings to get started or add a mapping manually
-                </p>
-                <div className="flex gap-3 justify-center">
-                  <Button onClick={() => setShowAddMappingForm(true)} className="bg-green-600 hover:bg-green-700">
-                    <Plus className="mr-2 h-4 w-4" /> Add Mapping
-                  </Button>
-                  <Button onClick={() => setShowUploadModal(true)}>
-                    <Upload className="mr-2 h-4 w-4" /> Upload File
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <MappingEmptyState
+              onAddMappingClick={() => setShowAddMappingForm(true)}
+              onUploadClick={() => setShowUploadModal(true)}
+            />
           )}
         </div>
       </div>
       
       {/* Modals */}
-      <UploadModal
-        isOpen={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onUpload={handleFileUpload}
-      />
-
-      <AddMappingForm
+      <MappingModals
+        showUploadModal={showUploadModal}
+        showAddMappingForm={showAddMappingForm}
         mappingFile={mappingFile}
+        onUploadModalClose={() => setShowUploadModal(false)}
+        onAddMappingFormClose={() => setShowAddMappingForm(false)}
+        onFileUpload={handleFileUpload}
         onAddMapping={handleAddMapping}
-        isOpen={showAddMappingForm}
-        onClose={() => setShowAddMappingForm(false)}
       />
     </div>
   );
