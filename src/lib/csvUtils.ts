@@ -93,14 +93,16 @@ function parseCSV(csvText: string): string[][] {
 }
 
 export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
+  console.log("Converting CSV to mapping data:", csvData);
+  
   // Ensure we have data to process
   if (!csvData || csvData.length < 2) {
     console.error('Invalid CSV data: missing rows', csvData);
     return [];
   }
   
-  // Get headers from the first row
-  const headers = csvData[0];
+  // Get headers from the first row and normalize them
+  const headers = csvData[0].map(header => header?.toLowerCase().trim());
   console.log('CSV headers:', headers);
   
   if (headers.length < 6) {
@@ -110,15 +112,15 @@ export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
   
   const mappings: CSVMapping[] = [];
   
-  // Map CSV columns to expected format
+  // Map CSV columns to expected format with flexible matching
   const columnIndices = {
-    pod: headers.findIndex(h => h?.toLowerCase() === 'pod'),
-    malcode: headers.findIndex(h => h?.toLowerCase() === 'malcode'),
-    sourceColumn: headers.findIndex(h => h?.toLowerCase() === 'source_column'),
-    sourceTable: headers.findIndex(h => h?.toLowerCase() === 'source_table'),
-    targetColumn: headers.findIndex(h => h?.toLowerCase() === 'target_column'),
-    targetTable: headers.findIndex(h => h?.toLowerCase() === 'target_table'),
-    transformation: headers.findIndex(h => h?.toLowerCase() === 'transformation')
+    pod: findColumnIndex(headers, ['pod', 'program', 'domain']),
+    malcode: findColumnIndex(headers, ['malcode', 'mal_code', 'management_area', 'area_code']),
+    sourceColumn: findColumnIndex(headers, ['source_column', 'sourcecolumn', 'src_column', 'source col']),
+    sourceTable: findColumnIndex(headers, ['source_table', 'sourcetable', 'src_table', 'source tbl']),
+    targetColumn: findColumnIndex(headers, ['target_column', 'targetcolumn', 'tgt_column', 'target col']),
+    targetTable: findColumnIndex(headers, ['target_table', 'targettable', 'tgt_table', 'target tbl']),
+    transformation: findColumnIndex(headers, ['transformation', 'transform', 'logic', 'rule'])
   };
   
   console.log('Column indices:', columnIndices);
@@ -129,6 +131,7 @@ export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
   
   if (missingColumns.length > 0) {
     console.error(`Missing required columns: ${missingColumns.join(', ')}`);
+    console.log('Available headers:', headers);
     return [];
   }
   
@@ -157,9 +160,24 @@ export function convertCSVToMappingData(csvData: string[][]): CSVMapping[] {
       transformation: columnIndices.transformation >= 0 ? row[columnIndices.transformation] : undefined
     };
     
+    // Skip rows with missing critical data
+    if (!mapping.pod || !mapping.malcode || !mapping.sourceColumn || !mapping.targetColumn) {
+      console.warn(`Row ${i} missing critical data, skipping:`, mapping);
+      continue;
+    }
+    
     mappings.push(mapping);
   }
   
   console.log(`Processed ${mappings.length} mappings from CSV data`);
   return mappings;
+}
+
+// Helper function to find column index with flexible matching
+function findColumnIndex(headers: string[], possibleNames: string[]): number {
+  for (const name of possibleNames) {
+    const index = headers.findIndex(header => header === name);
+    if (index !== -1) return index;
+  }
+  return -1;
 }
