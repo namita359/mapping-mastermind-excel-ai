@@ -8,6 +8,7 @@ import DownloadButton from "@/components/DownloadButton";
 import ReviewPanel from "@/components/ReviewPanel";
 import AIAssistant from "@/components/AIAssistant";
 import AddMappingForm from "@/components/AddMappingForm";
+import TestDataGenerator from "@/components/TestDataGenerator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -397,6 +398,7 @@ const Mapping = () => {
                   <TabsList className="mb-4 flex-shrink-0">
                     <TabsTrigger value="table">All Mappings ({rowsToDisplay.length})</TabsTrigger>
                     <TabsTrigger value="pending">Pending Review ({counts.pending})</TabsTrigger>
+                    <TabsTrigger value="testing">Test & Validate</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="table" className="flex-1 overflow-hidden bg-white rounded-lg shadow-sm border">
@@ -416,6 +418,12 @@ const Mapping = () => {
                         onRowSelect={handleRowSelect}
                         onStatusChange={handleStatusChange}
                       />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="testing" className="flex-1 overflow-hidden">
+                    <div className="h-full overflow-auto">
+                      <TestDataGenerator mappingFile={mappingFile} />
                     </div>
                   </TabsContent>
                 </Tabs>
