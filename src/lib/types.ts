@@ -1,11 +1,22 @@
 
 export type MappingStatus = 'draft' | 'pending' | 'approved' | 'rejected';
 
+export type SourceType = 'SRZ_ADLS'; // Raw zone in ADLS
+export type TargetType = 'CZ_ADLS' | 'SYNAPSE_TABLE'; // Curated zone ADLS or Synapse Table
+
+export interface BusinessMetadata {
+  malcodeDescription?: string;
+  tableDescription?: string;
+  columnDescription?: string;
+}
+
 export interface MappingColumn {
   id: string;
-  name: string;
+  malcode: string;
+  table: string;
+  column: string;
   dataType: string;
-  description?: string;
+  businessMetadata?: BusinessMetadata;
   isPrimaryKey?: boolean;
   isNullable?: boolean;
   defaultValue?: string;
@@ -13,9 +24,10 @@ export interface MappingColumn {
 
 export interface MappingRow {
   id: string;
-  sourceColumn: MappingColumn;
-  targetColumn: MappingColumn;
+  sourceColumn: MappingColumn & { sourceType: SourceType };
+  targetColumn: MappingColumn & { targetType: TargetType };
   transformation?: string;
+  join?: string;
   status: MappingStatus;
   createdBy: string;
   createdAt: Date;
