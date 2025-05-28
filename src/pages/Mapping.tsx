@@ -14,8 +14,6 @@ import { useMappingSearch } from "@/hooks/useMappingSearch";
 import { useMappingUI } from "@/hooks/useMappingUI";
 
 const MappingContent_Internal = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  
   const {
     mappingFile,
     selectedRow,
@@ -51,21 +49,8 @@ const MappingContent_Internal = () => {
   const rowsToDisplay = getFilteredRows();
   const hasData = mappingFile.rows.length > 0;
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Loading Excel data...</h2>
-          <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto"></div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MappingDataLoader onLoadingChange={setIsLoading} />
-      
       {/* Header Navigation */}
       <MappingHeader
         showSidebar={showSidebar}
@@ -143,10 +128,28 @@ const MappingContent_Internal = () => {
   );
 };
 
+const MappingWithLoader = () => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Loading Excel data...</h2>
+          <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto"></div>
+        </div>
+        <MappingDataLoader onLoadingChange={setIsLoading} />
+      </div>
+    );
+  }
+
+  return <MappingContent_Internal />;
+};
+
 const Mapping = () => {
   return (
     <MappingProvider>
-      <MappingContent_Internal />
+      <MappingWithLoader />
     </MappingProvider>
   );
 };
