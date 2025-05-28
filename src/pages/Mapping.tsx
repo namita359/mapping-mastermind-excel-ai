@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/Sidebar";
 import MappingHeader from "@/components/MappingHeader";
@@ -6,225 +7,45 @@ import MappingFilters from "@/components/MappingFilters";
 import MappingContent from "@/components/MappingContent";
 import MappingModals from "@/components/MappingModals";
 import MappingEmptyState from "@/components/MappingEmptyState";
-import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
-import { createEmptyMappingFile, loadSampleMappingData } from "@/lib/fileUtils";
+import MappingDataLoader from "@/components/MappingDataLoader";
+import { MappingProvider } from "@/components/MappingProvider";
+import { useMappingState } from "@/hooks/useMappingState";
+import { useMappingSearch } from "@/hooks/useMappingSearch";
+import { useMappingUI } from "@/hooks/useMappingUI";
 
-const Mapping = () => {
-  const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
-  const [selectedRow, setSelectedRow] = useState<MappingRow | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showAddMappingForm, setShowAddMappingForm] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-  const [showSidebar, setShowSidebar] = useState(false);
-  const [searchResults, setSearchResults] = useState<MappingRow[] | null>(null);
-  const [searchLoading, setSearchLoading] = useState(false);
+const MappingContent_Internal = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<MappingStatus | null>(null);
-  const { toast } = useToast();
+  
+  const {
+    mappingFile,
+    selectedRow,
+    statusFilter,
+    handleRowSelect,
+    handleStatusChange,
+    handleCommentAdd,
+    handleFileUpload,
+    handleAddMapping,
+    getStatusCounts,
+    handleStatusFilterClick,
+  } = useMappingState();
 
-  // Load data from Excel file when component mounts
-  useEffect(() => {
-    const loadInitialData = async () => {
-      console.log("Loading data from Excel file...");
-      setIsLoading(true);
-      
-      try {
-        const excelData = await loadSampleMappingData();
-        console.log("Excel data loaded:", excelData);
-        
-        if (excelData && excelData.rows.length > 0) {
-          setMappingFile(excelData);
-          const approvedCount = excelData.rows.filter(row => row.status === 'approved').length;
-          toast({
-            title: "Excel data loaded and auto-approved",
-            description: `${excelData.rows.length} mappings loaded from data.xlsx (${approvedCount} auto-approved)`,
-          });
-        } else {
-          console.error("No Excel data was loaded or data was empty");
-          toast({
-            title: "No Excel data found",
-            description: "Could not load data.xlsx. Please ensure the file exists in the public folder with the correct columns.",
-            variant: "destructive"
-          });
-        }
-      } catch (error) {
-        console.error("Error loading Excel data:", error);
-        toast({
-          title: "Error loading Excel data",
-          description: "An error occurred while loading data.xlsx",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadInitialData();
-  }, [toast]);
+  const {
+    searchLoading,
+    handleSearch,
+    handleAISearch,
+    getFilteredRows,
+  } = useMappingSearch();
 
-  const handleRowSelect = (row: MappingRow) => {
-    setSelectedRow(row);
-  };
-
-  const handleStatusChange = (rowId: string, status: MappingStatus) => {
-    const updatedRows = mappingFile.rows.map(row => 
-      row.id === rowId 
-        ? { ...row, status, reviewedAt: new Date(), reviewer: "Current User" } 
-        : row
-    );
-    
-    setMappingFile({ ...mappingFile, rows: updatedRows });
-    
-    if (selectedRow && selectedRow.id === rowId) {
-      setSelectedRow({ ...selectedRow, status, reviewedAt: new Date(), reviewer: "Current User" });
-    }
-    
-    toast({
-      title: "Status updated",
-      description: `Mapping status changed to ${status}`,
-    });
-  };
-
-  const handleCommentAdd = (rowId: string, comment: string) => {
-    const updatedRows = mappingFile.rows.map(row => {
-      if (row.id === rowId) {
-        const comments = row.comments ? [...row.comments, comment] : [comment];
-        return { ...row, comments };
-      }
-      return row;
-    });
-    
-    setMappingFile({ ...mappingFile, rows: updatedRows });
-    
-    if (selectedRow && selectedRow.id === rowId) {
-      const comments = selectedRow.comments ? [...selectedRow.comments, comment] : [comment];
-      setSelectedRow({ ...selectedRow, comments });
-    }
-  };
-
-  const handleSearch = (query: string, filters: Record<string, string>) => {
-    setSearchLoading(true);
-    
-    setTimeout(() => {
-      let results = [...mappingFile.rows];
-      
-      if (query.trim()) {
-        const lowerQuery = query.toLowerCase();
-        results = results.filter(row => 
-          row.sourceColumn.malcode.toLowerCase().includes(lowerQuery) ||
-          row.sourceColumn.table.toLowerCase().includes(lowerQuery) ||
-          row.sourceColumn.column.toLowerCase().includes(lowerQuery) ||
-          row.targetColumn.malcode.toLowerCase().includes(lowerQuery) ||
-          row.targetColumn.table.toLowerCase().includes(lowerQuery) ||
-          row.targetColumn.column.toLowerCase().includes(lowerQuery) ||
-          (row.transformation && row.transformation.toLowerCase().includes(lowerQuery))
-        );
-      }
-      
-      if (filters.status) {
-        results = results.filter(row => row.status === filters.status);
-      }
-      
-      setSearchResults(results);
-      setSearchLoading(false);
-      
-      toast({
-        title: "Search complete",
-        description: `Found ${results.length} mapping rows`,
-      });
-    }, 500);
-  };
-
-  const handleAISearch = (query: string) => {
-    setSearchLoading(true);
-    
-    setTimeout(() => {
-      const results = mappingFile.rows.filter(row => {
-        if (query.toLowerCase().includes("transformation") || query.toLowerCase().includes("transform")) {
-          return row.transformation !== undefined;
-        }
-        if (query.toLowerCase().includes("direct") || query.toLowerCase().includes("copy")) {
-          return row.transformation === undefined;
-        }
-        
-        return (
-          row.sourceColumn.malcode.toLowerCase().includes(query.toLowerCase()) ||
-          row.sourceColumn.table.toLowerCase().includes(query.toLowerCase()) ||
-          row.sourceColumn.column.toLowerCase().includes(query.toLowerCase()) ||
-          row.targetColumn.malcode.toLowerCase().includes(query.toLowerCase()) ||
-          row.targetColumn.table.toLowerCase().includes(query.toLowerCase()) ||
-          row.targetColumn.column.toLowerCase().includes(query.toLowerCase()) ||
-          (row.transformation && row.transformation.toLowerCase().includes(query.toLowerCase()))
-        );
-      });
-      
-      setSearchResults(results);
-      setSearchLoading(false);
-      
-      toast({
-        title: "AI search complete",
-        description: `Found ${results.length} mapping rows based on your query`,
-      });
-    }, 1000);
-  };
-
-  const handleFileUpload = (file: File, importedMappingFile?: MappingFile) => {
-    if (importedMappingFile) {
-      setMappingFile(importedMappingFile);
-      toast({
-        title: "Mapping file imported",
-        description: `${importedMappingFile.rows.length} mappings loaded from file`,
-      });
-      return;
-    }
-    
-    toast({
-      title: "File uploaded",
-      description: `${file.name} has been processed`,
-    });
-  };
-
-  const handleAddMapping = (newRow: MappingRow) => {
-    const updatedRows = [...mappingFile.rows, newRow];
-    setMappingFile({ ...mappingFile, rows: updatedRows });
-    
-    toast({
-      title: "Mapping Added",
-      description: `New mapping from ${newRow.sourceColumn.malcode}.${newRow.sourceColumn.table}.${newRow.sourceColumn.column} to ${newRow.targetColumn.malcode}.${newRow.targetColumn.table}.${newRow.targetColumn.column} added successfully.`,
-    });
-  };
-
-  const getStatusCounts = () => {
-    const counts = {
-      approved: 0,
-      pending: 0,
-      rejected: 0,
-      draft: 0
-    };
-    
-    mappingFile.rows.forEach(row => {
-      counts[row.status]++;
-    });
-    
-    return counts;
-  };
-
-  const getFilteredRows = () => {
-    let rowsToFilter = searchResults !== null ? searchResults : mappingFile.rows;
-    
-    if (statusFilter) {
-      return rowsToFilter.filter(row => row.status === statusFilter);
-    }
-    
-    return rowsToFilter;
-  };
-
-  const handleStatusFilterClick = (status: MappingStatus | null) => {
-    setStatusFilter(currentFilter => 
-      currentFilter === status ? null : status
-    );
-  };
+  const {
+    showUploadModal,
+    setShowUploadModal,
+    showAddMappingForm,
+    setShowAddMappingForm,
+    showAIAssistant,
+    setShowAIAssistant,
+    showSidebar,
+    setShowSidebar,
+  } = useMappingUI();
 
   const counts = getStatusCounts();
   const rowsToDisplay = getFilteredRows();
@@ -243,6 +64,8 @@ const Mapping = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      <MappingDataLoader onLoadingChange={setIsLoading} />
+      
       {/* Header Navigation */}
       <MappingHeader
         showSidebar={showSidebar}
@@ -317,6 +140,14 @@ const Mapping = () => {
         onAddMapping={handleAddMapping}
       />
     </div>
+  );
+};
+
+const Mapping = () => {
+  return (
+    <MappingProvider>
+      <MappingContent_Internal />
+    </MappingProvider>
   );
 };
 
