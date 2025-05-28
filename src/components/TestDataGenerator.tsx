@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { MappingFile } from "@/lib/types";
+import { createOpenAIService, getOpenAIKey } from "@/lib/openaiService";
 import GenerationControls from "./test-data/GenerationControls";
 import TestDataStats from "./test-data/TestDataStats";
 import SQLQueryDisplay from "./test-data/SQLQueryDisplay";
 import TestDataTabs from "./test-data/TestDataTabs";
 import EmptyState from "./test-data/EmptyState";
+import OpenAIKeyModal from "./OpenAIKeyModal";
 
 interface TestRecord {
   [key: string]: any;
@@ -22,127 +24,84 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [sqlQuery, setSqlQuery] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [validationResult, setValidationResult] = useState<any>(null);
   const { toast } = useToast();
 
-  const generateTestData = async () => {
+  const checkOpenAIKey = () => {
+    const apiKey = getOpenAIKey();
+    if (!apiKey) {
+      setShowKeyModal(true);
+      return false;
+    }
+    return true;
+  };
+
+  const generateCompleteAnalysis = async () => {
+    if (!checkOpenAIKey()) return;
+    
     setIsGenerating(true);
+    setIsGeneratingTestData(true);
     
     try {
-      console.log("Generating SQL query for mapping file:", mappingFile.name);
+      const openaiService = createOpenAIService();
+      if (!openaiService) {
+        throw new Error("Failed to create OpenAI service");
+      }
+
+      console.log("Starting complete OpenAI analysis pipeline for:", mappingFile.name);
       
-      // Simulate API call to generate SQL query
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      toast({
+        title: "AI Analysis Started",
+        description: "OpenAI is generating SQL, test data, and validation results...",
+      });
+
+      // Convert mapping file to the format expected by OpenAI service
+      const mappingInfo = {
+        name: mappingFile.name,
+        rows: mappingFile.rows.map(row => ({
+          sourceColumn: row.sourceColumn,
+          targetColumn: row.targetColumn,
+          dataType: row.dataType || 'string',
+          transformationLogic: row.transformationLogic
+        }))
+      };
+
+      // Run the complete OpenAI pipeline
+      const result = await openaiService.processComplete(mappingInfo);
       
-      const mockSQL = `-- Generated SQL for ${mappingFile.name}
-SELECT 
-${mappingFile.rows.map(row => 
-  `  ${row.sourceColumn.table}.${row.sourceColumn.column} AS ${row.targetColumn.column}`
-).join(',\n')}
-FROM ${mappingFile.rows[0]?.sourceColumn.table || 'source_table'}
-WHERE 1=1;`;
-      
-      setSqlQuery(mockSQL);
+      // Set all results
+      setSqlQuery(result.sqlQuery);
+      setGeneratedData(result.testData);
+      setValidationResult(result.validationResults);
       setHasGenerated(true);
       
       toast({
-        title: "SQL query generated",
-        description: "SQL query has been generated. Now generate test data to validate it.",
+        title: "AI Analysis Complete",
+        description: `Generated SQL query, ${result.testData.length} test scenarios, and validation results`,
       });
       
     } catch (error) {
-      console.error("Error generating SQL:", error);
+      console.error("Error in OpenAI analysis:", error);
+      
+      let errorMessage = "Failed to complete AI analysis";
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          errorMessage = "Invalid OpenAI API key. Please check your key and try again.";
+        } else if (error.message.includes('429')) {
+          errorMessage = "OpenAI rate limit exceeded. Please try again later.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: "Generation failed",
-        description: "Failed to generate SQL query. Please try again.",
+        title: "Analysis Failed",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const generateIntelligentTestData = async () => {
-    if (!sqlQuery.trim()) {
-      toast({
-        title: "No SQL query",
-        description: "Please generate SQL query first",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGeneratingTestData(true);
-    
-    try {
-      console.log("Using OpenAI to generate intelligent test data for SQL query:", sqlQuery);
-      
-      // Simulate OpenAI API call for intelligent test data generation
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Mock intelligent test data based on SQL analysis
-      const intelligentTestData: TestRecord[] = [
-        {
-          test_scenario: "Happy Path - Normal Data",
-          customer_id: 12345,
-          customer_name: "John Doe",
-          order_amount: 150.75,
-          order_date: "2024-01-15",
-          product_category: "Electronics",
-          expected_result: "Should return valid customer order"
-        },
-        {
-          test_scenario: "Edge Case - Large Amount",
-          customer_id: 67890,
-          customer_name: "Jane Smith",
-          order_amount: 9999.99,
-          order_date: "2024-02-20",
-          product_category: "Luxury",
-          expected_result: "Should handle large monetary values"
-        },
-        {
-          test_scenario: "Edge Case - NULL Values",
-          customer_id: 11111,
-          customer_name: "Bob Wilson",
-          order_amount: null,
-          order_date: "2024-03-10",
-          product_category: null,
-          expected_result: "Should handle NULL values gracefully"
-        },
-        {
-          test_scenario: "Boundary Test - Zero Amount",
-          customer_id: 22222,
-          customer_name: "Alice Brown",
-          order_amount: 0.00,
-          order_date: "2024-04-05",
-          product_category: "Free Sample",
-          expected_result: "Should process zero-value orders"
-        },
-        {
-          test_scenario: "Data Type Test - Special Characters",
-          customer_id: 33333,
-          customer_name: "José María O'Connor",
-          order_amount: 75.50,
-          order_date: "2024-05-12",
-          product_category: "Books & Media",
-          expected_result: "Should handle special characters in names"
-        }
-      ];
-      
-      setGeneratedData(intelligentTestData);
-      
-      toast({
-        title: "Intelligent test data generated",
-        description: `OpenAI generated ${intelligentTestData.length} test scenarios to validate your SQL query`,
-      });
-      
-    } catch (error) {
-      console.error("Error generating intelligent test data:", error);
-      toast({
-        title: "Generation failed",
-        description: "Failed to generate test data with OpenAI. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
       setIsGeneratingTestData(false);
     }
   };
@@ -153,7 +112,7 @@ WHERE 1=1;`;
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `intelligent_test_data_${mappingFile.name.replace(/\s+/g, '_')}.json`;
+    link.download = `openai_test_data_${mappingFile.name.replace(/\s+/g, '_')}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -161,7 +120,14 @@ WHERE 1=1;`;
     
     toast({
       title: "Download started",
-      description: "Intelligent test data file download initiated",
+      description: "OpenAI generated test data file download initiated",
+    });
+  };
+
+  const handleKeySet = () => {
+    toast({
+      title: "API Key Saved",
+      description: "OpenAI API key has been saved. You can now generate analysis.",
     });
   };
 
@@ -177,8 +143,8 @@ WHERE 1=1;`;
         isGeneratingTestData={isGeneratingTestData}
         hasGenerated={hasGenerated}
         hasGeneratedData={generatedData.length > 0}
-        onGenerateSQL={generateTestData}
-        onGenerateTestData={generateIntelligentTestData}
+        onGenerateSQL={generateCompleteAnalysis}
+        onGenerateTestData={generateCompleteAnalysis}
         onDownloadData={downloadTestData}
       />
 
@@ -194,10 +160,17 @@ WHERE 1=1;`;
           generatedData={generatedData}
           sqlQuery={sqlQuery}
           mappingFile={mappingFile}
+          validationResult={validationResult}
           onSQLChange={setSqlQuery}
           onDataChange={setGeneratedData}
         />
       )}
+
+      <OpenAIKeyModal
+        isOpen={showKeyModal}
+        onClose={() => setShowKeyModal(false)}
+        onKeySet={handleKeySet}
+      />
     </div>
   );
 };

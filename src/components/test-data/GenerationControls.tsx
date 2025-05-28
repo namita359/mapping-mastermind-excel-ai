@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, Database, Play, Loader2, Sparkles } from "lucide-react";
+import { Download, Database, Loader2, Sparkles } from "lucide-react";
 
 interface GenerationControlsProps {
   mappingFileName: string;
@@ -24,6 +24,8 @@ const GenerationControls = ({
   onGenerateTestData,
   onDownloadData,
 }: GenerationControlsProps) => {
+  const isProcessing = isGenerating || isGeneratingTestData;
+
   return (
     <Card>
       <CardHeader>
@@ -31,46 +33,31 @@ const GenerationControls = ({
           <div>
             <CardTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />
-              SQL Query & Test Data Generator
+              OpenAI Complete Analysis Pipeline
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Generate SQL query and use OpenAI to create intelligent test data for validation
+              Generate SQL → Create test data → Validate query with OpenAI in one complete process
             </p>
           </div>
           <div className="flex gap-2">
             {hasGeneratedData && (
               <Button variant="outline" onClick={onDownloadData} size="sm">
                 <Download className="h-4 w-4 mr-2" />
-                Download Data
+                Download Results
               </Button>
             )}
             <Button 
               onClick={onGenerateSQL} 
-              disabled={isGenerating}
+              disabled={isProcessing}
               size="sm"
-              variant="outline"
             >
-              {isGenerating ? (
+              {isProcessing ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
-                <Play className="h-4 w-4 mr-2" />
+                <Sparkles className="h-4 w-4 mr-2" />
               )}
-              {isGenerating ? 'Generating...' : 'Generate SQL'}
+              {isProcessing ? 'Processing with AI...' : 'Run Complete AI Analysis'}
             </Button>
-            {hasGenerated && (
-              <Button 
-                onClick={onGenerateTestData} 
-                disabled={isGeneratingTestData}
-                size="sm"
-              >
-                {isGeneratingTestData ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                {isGeneratingTestData ? 'Generating with AI...' : 'Generate Test Data'}
-              </Button>
-            )}
           </div>
         </div>
       </CardHeader>
