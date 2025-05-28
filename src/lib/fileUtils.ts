@@ -21,7 +21,7 @@ export async function loadSampleMappingData(): Promise<MappingFile | null> {
     const dataResponse = await fetch('/data.xlsx');
     
     if (!dataResponse.ok) {
-      console.error('Failed to load data.xlsx');
+      console.log('data.xlsx not found in public folder, starting with empty mapping');
       return null;
     }
 
@@ -35,7 +35,7 @@ export async function loadSampleMappingData(): Promise<MappingFile | null> {
     console.log("Excel data loaded:", excelData);
     
     if (!excelData || excelData.length < 2) {
-      console.error('No data found in Excel file');
+      console.log('No data found in Excel file');
       return null;
     }
 

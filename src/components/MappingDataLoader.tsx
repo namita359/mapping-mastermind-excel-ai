@@ -14,7 +14,7 @@ const MappingDataLoader = ({ onLoadingChange }: MappingDataLoaderProps) => {
 
   useEffect(() => {
     const loadInitialData = async () => {
-      console.log("Loading data from Excel file...");
+      console.log("Attempting to load data from Excel file...");
       onLoadingChange(true);
       
       try {
@@ -25,25 +25,19 @@ const MappingDataLoader = ({ onLoadingChange }: MappingDataLoaderProps) => {
           setMappingFile(excelData);
           const approvedCount = excelData.rows.filter(row => row.status === 'approved').length;
           toast({
-            title: "Excel data loaded and auto-approved",
+            title: "Excel data loaded successfully",
             description: `${excelData.rows.length} mappings loaded from data.xlsx (${approvedCount} auto-approved)`,
           });
         } else {
-          console.error("No Excel data was loaded or data was empty");
-          toast({
-            title: "No Excel data found",
-            description: "Could not load data.xlsx. Please ensure the file exists in the public folder with the correct columns.",
-            variant: "destructive"
-          });
+          console.log("No Excel data found, starting with empty mapping file");
+          // Don't show error toast, just start with empty state
         }
       } catch (error) {
         console.error("Error loading Excel data:", error);
-        toast({
-          title: "Error loading Excel data",
-          description: "An error occurred while loading data.xlsx",
-          variant: "destructive"
-        });
+        // Don't show error toast, just start with empty state
+        console.log("Starting with empty mapping file");
       } finally {
+        // Always stop loading, regardless of success or failure
         onLoadingChange(false);
       }
     };
