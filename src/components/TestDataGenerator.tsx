@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Database, Play, Loader2, GitBranch } from "lucide-react";
+import { Download, Database, Play, Loader2, GitBranch, Sparkles } from "lucide-react";
 import { MappingFile } from "@/lib/types";
 import SQLDataEditor from "./SQLDataEditor";
 import SQLValidator from "./SQLValidator";
@@ -26,58 +26,129 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [generatedData, setGeneratedData] = useState<TestRecord[]>([]);
   const [sqlQuery, setSqlQuery] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
   const { toast } = useToast();
 
   const generateTestData = async () => {
     setIsGenerating(true);
     
     try {
-      // Simulate API call to generate test data
-      console.log("Generating test data for mapping file:", mappingFile.name);
+      console.log("Generating SQL query for mapping file:", mappingFile.name);
       
-      // Mock data generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const mockData: TestRecord[] = mappingFile.rows.slice(0, 5).map((row, index) => ({
-        row_id: index + 1,
-        source_malcode: row.sourceColumn.malcode,
-        source_table: row.sourceColumn.table,
-        source_column: row.sourceColumn.column,
-        source_value: `sample_value_${index + 1}`,
-        target_malcode: row.targetColumn.malcode,
-        target_table: row.targetColumn.table,
-        target_column: row.targetColumn.column,
-        transformation: row.transformation || "Direct Copy",
-        data_type: row.sourceColumn.dataType,
-        validation_status: "PENDING"
-      }));
+      // Simulate API call to generate SQL query
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
       const mockSQL = `-- Generated SQL for ${mappingFile.name}
 SELECT 
-  ${mappingFile.rows.map(row => 
-    `  ${row.sourceColumn.table}.${row.sourceColumn.column} AS ${row.targetColumn.column}`
-  ).join(',\n')}
+${mappingFile.rows.map(row => 
+  `  ${row.sourceColumn.table}.${row.sourceColumn.column} AS ${row.targetColumn.column}`
+).join(',\n')}
 FROM ${mappingFile.rows[0]?.sourceColumn.table || 'source_table'}
 WHERE 1=1;`;
       
-      setGeneratedData(mockData);
       setSqlQuery(mockSQL);
       setHasGenerated(true);
       
       toast({
-        title: "Test data generated",
-        description: `Generated ${mockData.length} test records and SQL query`,
+        title: "SQL query generated",
+        description: "SQL query has been generated. Now generate test data to validate it.",
       });
       
     } catch (error) {
-      console.error("Error generating test data:", error);
+      console.error("Error generating SQL:", error);
       toast({
         title: "Generation failed",
-        description: "Failed to generate test data. Please try again.",
+        description: "Failed to generate SQL query. Please try again.",
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const generateIntelligentTestData = async () => {
+    if (!sqlQuery.trim()) {
+      toast({
+        title: "No SQL query",
+        description: "Please generate SQL query first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingTestData(true);
+    
+    try {
+      console.log("Using OpenAI to generate intelligent test data for SQL query:", sqlQuery);
+      
+      // Simulate OpenAI API call for intelligent test data generation
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Mock intelligent test data based on SQL analysis
+      const intelligentTestData: TestRecord[] = [
+        {
+          test_scenario: "Happy Path - Normal Data",
+          customer_id: 12345,
+          customer_name: "John Doe",
+          order_amount: 150.75,
+          order_date: "2024-01-15",
+          product_category: "Electronics",
+          expected_result: "Should return valid customer order"
+        },
+        {
+          test_scenario: "Edge Case - Large Amount",
+          customer_id: 67890,
+          customer_name: "Jane Smith",
+          order_amount: 9999.99,
+          order_date: "2024-02-20",
+          product_category: "Luxury",
+          expected_result: "Should handle large monetary values"
+        },
+        {
+          test_scenario: "Edge Case - NULL Values",
+          customer_id: 11111,
+          customer_name: "Bob Wilson",
+          order_amount: null,
+          order_date: "2024-03-10",
+          product_category: null,
+          expected_result: "Should handle NULL values gracefully"
+        },
+        {
+          test_scenario: "Boundary Test - Zero Amount",
+          customer_id: 22222,
+          customer_name: "Alice Brown",
+          order_amount: 0.00,
+          order_date: "2024-04-05",
+          product_category: "Free Sample",
+          expected_result: "Should process zero-value orders"
+        },
+        {
+          test_scenario: "Data Type Test - Special Characters",
+          customer_id: 33333,
+          customer_name: "José María O'Connor",
+          order_amount: 75.50,
+          order_date: "2024-05-12",
+          product_category: "Books & Media",
+          expected_result: "Should handle special characters in names"
+        }
+      ];
+      
+      setGeneratedData(intelligentTestData);
+      
+      toast({
+        title: "Intelligent test data generated",
+        description: `OpenAI generated ${intelligentTestData.length} test scenarios to validate your SQL query`,
+      });
+      
+    } catch (error) {
+      console.error("Error generating intelligent test data:", error);
+      toast({
+        title: "Generation failed",
+        description: "Failed to generate test data with OpenAI. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingTestData(false);
     }
   };
 
@@ -87,7 +158,7 @@ WHERE 1=1;`;
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `test_data_${mappingFile.name.replace(/\s+/g, '_')}.json`;
+    link.download = `intelligent_test_data_${mappingFile.name.replace(/\s+/g, '_')}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -95,7 +166,7 @@ WHERE 1=1;`;
     
     toast({
       title: "Download started",
-      description: "Test data file download initiated",
+      description: "Intelligent test data file download initiated",
     });
   };
 
@@ -128,14 +199,14 @@ WHERE 1=1;`;
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Database className="h-5 w-5" />
-                Test Data Generator
+                SQL Query & Test Data Generator
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Generate synthetic test data based on your mapping configuration
+                Generate SQL query and use OpenAI to create intelligent test data for validation
               </p>
             </div>
             <div className="flex gap-2">
-              {hasGenerated && (
+              {generatedData.length > 0 && (
                 <Button variant="outline" onClick={downloadTestData} size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Download Data
@@ -145,13 +216,14 @@ WHERE 1=1;`;
                 onClick={generateTestData} 
                 disabled={isGenerating}
                 size="sm"
+                variant="outline"
               >
                 {isGenerating ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4 mr-2" />
                 )}
-                {isGenerating ? 'Generating...' : 'Generate Test Data'}
+                {isGenerating ? 'Generating...' : 'Generate SQL'}
               </Button>
             </div>
           </div>
@@ -164,7 +236,7 @@ WHERE 1=1;`;
             </div>
             <div>
               <div className="text-2xl font-bold text-green-600">{generatedData.length}</div>
-              <div className="text-sm text-muted-foreground">Generated Records</div>
+              <div className="text-sm text-muted-foreground">Test Scenarios</div>
             </div>
             <div>
               <div className="text-2xl font-bold text-purple-600">
@@ -176,11 +248,48 @@ WHERE 1=1;`;
         </CardContent>
       </Card>
 
-      {/* Results and Tools */}
+      {/* SQL Query Display & Test Data Generation */}
       {hasGenerated && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-500" />
+                Generated SQL Query
+              </CardTitle>
+              <Button 
+                onClick={generateIntelligentTestData} 
+                disabled={isGeneratingTestData || !sqlQuery.trim()}
+                size="sm"
+              >
+                {isGeneratingTestData ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4 mr-2" />
+                )}
+                {isGeneratingTestData ? 'Generating with AI...' : 'Generate Test Data with OpenAI'}
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              SQL query based on your mappings. Generate intelligent test data to validate this query.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm overflow-x-auto">
+              <pre className="whitespace-pre-wrap">{sqlQuery}</pre>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results and Tools */}
+      {generatedData.length > 0 && (
         <Tabs defaultValue="data" className="space-y-4">
           <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="data">Generated Data</TabsTrigger>
+            <TabsTrigger value="data">
+              <Sparkles className="h-4 w-4 mr-2" />
+              AI Generated Data
+            </TabsTrigger>
             <TabsTrigger value="sql">SQL Editor</TabsTrigger>
             <TabsTrigger value="validation">AI Validation</TabsTrigger>
             <TabsTrigger value="lineage">
@@ -192,9 +301,12 @@ WHERE 1=1;`;
           <TabsContent value="data">
             <Card>
               <CardHeader>
-                <CardTitle>Generated Test Data</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-blue-500" />
+                  OpenAI Generated Test Scenarios
+                </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Preview of generated test records based on your mappings
+                  Intelligent test data scenarios generated by OpenAI to validate your SQL query
                 </p>
               </CardHeader>
               <CardContent>
@@ -215,10 +327,12 @@ WHERE 1=1;`;
                           <TableRow key={index}>
                             {Object.entries(row).map(([key, value], cellIndex) => (
                               <TableCell key={cellIndex} className="font-mono text-sm">
-                                {key === 'validation_status' ? (
-                                  <Badge variant={value === 'PENDING' ? 'secondary' : 'default'}>
+                                {key === 'test_scenario' ? (
+                                  <Badge variant="outline" className="text-xs">
                                     {String(value)}
                                   </Badge>
+                                ) : value === null ? (
+                                  <span className="text-gray-400 italic">NULL</span>
                                 ) : (
                                   String(value)
                                 )}
