@@ -1,17 +1,12 @@
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Download, Database, Play, Loader2, GitBranch, Sparkles } from "lucide-react";
 import { MappingFile } from "@/lib/types";
-import SQLDataEditor from "./SQLDataEditor";
-import SQLValidator from "./SQLValidator";
-import ColumnLineageView from "./ColumnLineageView";
+import GenerationControls from "./test-data/GenerationControls";
+import TestDataStats from "./test-data/TestDataStats";
+import SQLQueryDisplay from "./test-data/SQLQueryDisplay";
+import TestDataTabs from "./test-data/TestDataTabs";
+import EmptyState from "./test-data/EmptyState";
 
 interface TestRecord {
   [key: string]: any;
@@ -171,203 +166,37 @@ WHERE 1=1;`;
   };
 
   if (mappingFile.rows.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5" />
-            Test Data Generator
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Database className="h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-lg text-gray-500 mb-2">No mapping data available</p>
-            <p className="text-sm text-gray-400">Upload or create mappings first to generate test data</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <EmptyState />;
   }
 
   return (
     <div className="space-y-6">
-      {/* Generation Controls */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                SQL Query & Test Data Generator
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Generate SQL query and use OpenAI to create intelligent test data for validation
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {generatedData.length > 0 && (
-                <Button variant="outline" onClick={downloadTestData} size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Data
-                </Button>
-              )}
-              <Button 
-                onClick={generateTestData} 
-                disabled={isGenerating}
-                size="sm"
-                variant="outline"
-              >
-                {isGenerating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                {isGenerating ? 'Generating...' : 'Generate SQL'}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-blue-600">{mappingFile.rows.length}</div>
-              <div className="text-sm text-muted-foreground">Total Mappings</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600">{generatedData.length}</div>
-              <div className="text-sm text-muted-foreground">Test Scenarios</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-purple-600">
-                {new Set(mappingFile.rows.map(r => r.sourceColumn.table)).size}
-              </div>
-              <div className="text-sm text-muted-foreground">Source Tables</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <GenerationControls
+        mappingFileName={mappingFile.name}
+        isGenerating={isGenerating}
+        isGeneratingTestData={isGeneratingTestData}
+        hasGenerated={hasGenerated}
+        hasGeneratedData={generatedData.length > 0}
+        onGenerateSQL={generateTestData}
+        onGenerateTestData={generateIntelligentTestData}
+        onDownloadData={downloadTestData}
+      />
 
-      {/* SQL Query Display & Test Data Generation */}
-      {hasGenerated && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-500" />
-                Generated SQL Query
-              </CardTitle>
-              <Button 
-                onClick={generateIntelligentTestData} 
-                disabled={isGeneratingTestData || !sqlQuery.trim()}
-                size="sm"
-              >
-                {isGeneratingTestData ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                {isGeneratingTestData ? 'Generating with AI...' : 'Generate Test Data with OpenAI'}
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              SQL query based on your mappings. Generate intelligent test data to validate this query.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-gray-50 p-4 rounded-lg font-mono text-sm overflow-x-auto">
-              <pre className="whitespace-pre-wrap">{sqlQuery}</pre>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <TestDataStats 
+        mappingFile={mappingFile} 
+        generatedDataCount={generatedData.length} 
+      />
 
-      {/* Results and Tools */}
+      {hasGenerated && <SQLQueryDisplay sqlQuery={sqlQuery} />}
+
       {generatedData.length > 0 && (
-        <Tabs defaultValue="data" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="data">
-              <Sparkles className="h-4 w-4 mr-2" />
-              AI Generated Data
-            </TabsTrigger>
-            <TabsTrigger value="sql">SQL Editor</TabsTrigger>
-            <TabsTrigger value="validation">AI Validation</TabsTrigger>
-            <TabsTrigger value="lineage">
-              <GitBranch className="h-4 w-4 mr-2" />
-              Column Lineage
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="data">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-blue-500" />
-                  OpenAI Generated Test Scenarios
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Intelligent test data scenarios generated by OpenAI to validate your SQL query
-                </p>
-              </CardHeader>
-              <CardContent>
-                <div className="border rounded-lg">
-                  <ScrollArea className="h-[400px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {generatedData.length > 0 && Object.keys(generatedData[0]).map(key => (
-                            <TableHead key={key} className="min-w-[120px]">
-                              {key.replace(/_/g, ' ').toUpperCase()}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {generatedData.map((row, index) => (
-                          <TableRow key={index}>
-                            {Object.entries(row).map(([key, value], cellIndex) => (
-                              <TableCell key={cellIndex} className="font-mono text-sm">
-                                {key === 'test_scenario' ? (
-                                  <Badge variant="outline" className="text-xs">
-                                    {String(value)}
-                                  </Badge>
-                                ) : value === null ? (
-                                  <span className="text-gray-400 italic">NULL</span>
-                                ) : (
-                                  String(value)
-                                )}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="sql">
-            <SQLDataEditor
-              originalSQL={sqlQuery}
-              originalData={generatedData}
-              onSQLChange={setSqlQuery}
-              onDataChange={setGeneratedData}
-            />
-          </TabsContent>
-
-          <TabsContent value="validation">
-            <SQLValidator
-              sqlQuery={sqlQuery}
-              sourceData={generatedData}
-            />
-          </TabsContent>
-
-          <TabsContent value="lineage">
-            <ColumnLineageView mappingFile={mappingFile} />
-          </TabsContent>
-        </Tabs>
+        <TestDataTabs
+          generatedData={generatedData}
+          sqlQuery={sqlQuery}
+          mappingFile={mappingFile}
+          onSQLChange={setSqlQuery}
+          onDataChange={setGeneratedData}
+        />
       )}
     </div>
   );
