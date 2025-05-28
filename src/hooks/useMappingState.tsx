@@ -1,4 +1,3 @@
-
 import { MappingStatus, MappingRow, MappingFile } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useMappingContext } from '@/components/MappingProvider';
@@ -96,9 +95,8 @@ export const useMappingState = () => {
   };
 
   const handleStatusFilterClick = (status: MappingStatus | null) => {
-    setStatusFilter(currentFilter => 
-      currentFilter === status ? null : status
-    );
+    const newFilter = statusFilter === status ? null : status;
+    setStatusFilter(newFilter);
   };
 
   return {
