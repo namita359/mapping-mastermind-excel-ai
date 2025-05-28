@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MappingFile, MappingRow } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Copy, Download, RefreshCw } from "lucide-react";
+import { generateSQLAndTestData } from "@/lib/apiService";
+import { Play, Copy, Download, RefreshCw, AlertTriangle } from "lucide-react";
 
 interface TestDataGeneratorProps {
   mappingFile: MappingFile;
@@ -27,13 +27,42 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
     query: string;
   } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const mappingsToUse = selectedMappings || mappingFile.rows.filter(row => row.status === 'approved');
 
-  const generateSampleData = () => {
+  const generateSampleData = async () => {
     setIsGenerating(true);
+    setApiError(null);
     
+    try {
+      console.log("Calling FastAPI to generate SQL and test data...");
+      const response = await generateSQLAndTestData(mappingsToUse);
+      
+      setGeneratedData({
+        sourceData: response.source_data,
+        targetData: response.target_data,
+        query: response.sql_query
+      });
+      
+      toast({
+        title: "Test data generated",
+        description: `Generated ${response.source_data.length} test records with validation query from FastAPI`,
+      });
+    } catch (error) {
+      console.error("FastAPI error:", error);
+      setApiError(error instanceof Error ? error.message : "Failed to connect to FastAPI backend");
+      
+      // Fallback to local generation
+      console.log("Falling back to local generation...");
+      await generateLocalFallback();
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateLocalFallback = async () => {
     // Simulate API call delay
     setTimeout(() => {
       const sourceData: TestRecord[] = [];
@@ -85,13 +114,13 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
       const query = generateSQLQuery(mappingsToUse);
       
       setGeneratedData({ sourceData, targetData, query });
-      setIsGenerating(false);
       
       toast({
-        title: "Test data generated",
-        description: `Generated ${sourceData.length} test records with validation query`,
+        title: "Test data generated (local fallback)",
+        description: `Generated ${sourceData.length} test records using local generation`,
+        variant: "destructive"
       });
-    }, 1000);
+    }, 500);
   };
 
   const generateSampleValue = (dataType: string, index: number): any => {
@@ -204,15 +233,15 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
           <div>
             <CardTitle className="flex items-center gap-2">
               <Play className="h-5 w-5" />
-              Test Data Generator
+              Test Data Generator (FastAPI Integration)
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Generate sample data and validation queries for your mappings
+              Generate sample data and validation queries using FastAPI backend (localhost:3000)
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">
-              {mappingsToUse.length} mappings
+              {mappingsToUse.length} approved mappings
             </Badge>
             <Button 
               onClick={generateSampleData} 
@@ -224,10 +253,19 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
               ) : (
                 <Play className="h-4 w-4 mr-2" />
               )}
-              {isGenerating ? 'Generating...' : 'Generate Test Data'}
+              {isGenerating ? 'Generating...' : 'Generate via FastAPI'}
             </Button>
           </div>
         </div>
+        
+        {apiError && (
+          <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <p className="text-sm text-yellow-800">
+              FastAPI Error: {apiError}. Using local fallback generation.
+            </p>
+          </div>
+        )}
       </CardHeader>
       
       <CardContent>
@@ -350,7 +388,8 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
           </Tabs>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
-            <p>Click "Generate Test Data" to create sample data and validation queries.</p>
+            <p>Click "Generate via FastAPI" to create sample data and validation queries using the backend service.</p>
+            <p className="text-xs mt-2">Make sure your FastAPI server is running on localhost:3000</p>
           </div>
         )}
       </CardContent>

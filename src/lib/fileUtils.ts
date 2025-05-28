@@ -89,7 +89,7 @@ function processExcelData(data: string[][]): MappingFile | null {
     return null;
   }
 
-  // Convert to MappingFile format
+  // Convert to MappingFile format with all records auto-approved
   const mappingRows: MappingRow[] = validRows.map((row, index) => ({
     id: `row-${Date.now()}-${index}`,
     sourceColumn: {
@@ -110,9 +110,11 @@ function processExcelData(data: string[][]): MappingFile | null {
     },
     transformation: transformationIndex !== -1 ? row[transformationIndex] : undefined,
     join: joinIndex !== -1 ? row[joinIndex] : undefined,
-    status: "pending" as const,
+    status: "approved" as const, // Auto-approve all records
     createdBy: "Excel Import",
     createdAt: new Date(),
+    reviewer: "Auto-Approved", // Add reviewer info
+    reviewedAt: new Date(), // Add review timestamp
     comments: []
   }));
 
@@ -131,6 +133,6 @@ function processExcelData(data: string[][]): MappingFile | null {
     createdAt: new Date()
   };
 
-  console.log("Processed Excel mapping data:", mappingFile);
+  console.log("Processed Excel mapping data with auto-approved records:", mappingFile);
   return mappingFile;
 }

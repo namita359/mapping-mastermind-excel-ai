@@ -35,9 +35,10 @@ const Mapping = () => {
         
         if (excelData && excelData.rows.length > 0) {
           setMappingFile(excelData);
+          const approvedCount = excelData.rows.filter(row => row.status === 'approved').length;
           toast({
-            title: "Excel data loaded",
-            description: `${excelData.rows.length} mappings loaded from data.xlsx`,
+            title: "Excel data loaded and auto-approved",
+            description: `${excelData.rows.length} mappings loaded from data.xlsx (${approvedCount} auto-approved)`,
           });
         } else {
           console.error("No Excel data was loaded or data was empty");
