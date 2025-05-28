@@ -1,431 +1,259 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MappingFile, MappingRow } from "@/lib/types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { generateSQLAndTestData } from "@/lib/apiService";
-import { Play, Copy, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { Download, Database, Play, Loader2, GitBranch } from "lucide-react";
+import { MappingFile } from "@/lib/types";
 import SQLDataEditor from "./SQLDataEditor";
 import SQLValidator from "./SQLValidator";
-
-interface TestDataGeneratorProps {
-  mappingFile: MappingFile;
-  selectedMappings?: MappingRow[];
-}
+import ColumnLineageView from "./ColumnLineageView";
 
 interface TestRecord {
   [key: string]: any;
 }
 
-const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorProps) => {
-  const [generatedData, setGeneratedData] = useState<{
-    sourceData: TestRecord[];
-    targetData: TestRecord[];
-    query: string;
-  } | null>(null);
+interface TestDataGeneratorProps {
+  mappingFile: MappingFile;
+}
+
+const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
+  const [generatedData, setGeneratedData] = useState<TestRecord[]>([]);
+  const [sqlQuery, setSqlQuery] = useState("");
+  const [hasGenerated, setHasGenerated] = useState(false);
   const { toast } = useToast();
 
-  const mappingsToUse = selectedMappings || mappingFile.rows.filter(row => row.status === 'approved');
-
-  const generateSampleData = async () => {
+  const generateTestData = async () => {
     setIsGenerating(true);
-    setApiError(null);
     
     try {
-      console.log("Calling FastAPI to generate SQL and test data...");
-      const response = await generateSQLAndTestData(mappingsToUse);
+      // Simulate API call to generate test data
+      console.log("Generating test data for mapping file:", mappingFile.name);
       
-      setGeneratedData({
-        sourceData: response.source_data,
-        targetData: response.target_data,
-        query: response.sql_query
-      });
+      // Mock data generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const mockData: TestRecord[] = mappingFile.rows.slice(0, 5).map((row, index) => ({
+        row_id: index + 1,
+        source_malcode: row.sourceColumn.malcode,
+        source_table: row.sourceColumn.table,
+        source_column: row.sourceColumn.column,
+        source_value: `sample_value_${index + 1}`,
+        target_malcode: row.targetColumn.malcode,
+        target_table: row.targetColumn.table,
+        target_column: row.targetColumn.column,
+        transformation: row.transformation || "Direct Copy",
+        data_type: row.sourceColumn.dataType,
+        validation_status: "PENDING"
+      }));
+      
+      const mockSQL = `-- Generated SQL for ${mappingFile.name}
+SELECT 
+  ${mappingFile.rows.map(row => 
+    `  ${row.sourceColumn.table}.${row.sourceColumn.column} AS ${row.targetColumn.column}`
+  ).join(',\n')}
+FROM ${mappingFile.rows[0]?.sourceColumn.table || 'source_table'}
+WHERE 1=1;`;
+      
+      setGeneratedData(mockData);
+      setSqlQuery(mockSQL);
+      setHasGenerated(true);
       
       toast({
         title: "Test data generated",
-        description: `Generated ${response.source_data.length} test records with validation query from FastAPI`,
+        description: `Generated ${mockData.length} test records and SQL query`,
       });
-    } catch (error) {
-      console.error("FastAPI error:", error);
-      setApiError(error instanceof Error ? error.message : "Failed to connect to FastAPI backend");
       
-      // Fallback to local generation
-      console.log("Falling back to local generation...");
-      await generateLocalFallback();
+    } catch (error) {
+      console.error("Error generating test data:", error);
+      toast({
+        title: "Generation failed",
+        description: "Failed to generate test data. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const generateLocalFallback = async () => {
-    // Simulate API call delay
-    setTimeout(() => {
-      const sourceData: TestRecord[] = [];
-      const targetData: TestRecord[] = [];
-      
-      // Generate 5 sample records
-      for (let i = 1; i <= 5; i++) {
-        const sourceRecord: TestRecord = {};
-        const targetRecord: TestRecord = {};
-        
-        // Group mappings by source table to avoid duplicates
-        const sourceTableGroups = mappingsToUse.reduce((groups, mapping) => {
-          const key = `${mapping.sourceColumn.malcode}.${mapping.sourceColumn.table}`;
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(mapping);
-          return groups;
-        }, {} as Record<string, MappingRow[]>);
-        
-        // Generate source data
-        Object.values(sourceTableGroups).forEach(mappings => {
-          mappings.forEach(mapping => {
-            const sourceKey = `${mapping.sourceColumn.malcode}_${mapping.sourceColumn.table}_${mapping.sourceColumn.column}`;
-            sourceRecord[sourceKey] = generateSampleValue(mapping.sourceColumn.dataType, i);
-          });
-        });
-        
-        // Generate target data based on transformations
-        mappingsToUse.forEach(mapping => {
-          const sourceKey = `${mapping.sourceColumn.malcode}_${mapping.sourceColumn.table}_${mapping.sourceColumn.column}`;
-          const targetKey = `${mapping.targetColumn.malcode}_${mapping.targetColumn.table}_${mapping.targetColumn.column}`;
-          
-          if (mapping.transformation) {
-            // Apply transformation logic
-            targetRecord[targetKey] = applyTransformation(
-              sourceRecord[sourceKey], 
-              mapping.transformation
-            );
-          } else {
-            // Direct copy
-            targetRecord[targetKey] = sourceRecord[sourceKey];
-          }
-        });
-        
-        sourceData.push(sourceRecord);
-        targetData.push(targetRecord);
-      }
-      
-      // Generate SQL query
-      const query = generateSQLQuery(mappingsToUse);
-      
-      setGeneratedData({ sourceData, targetData, query });
-      
-      toast({
-        title: "Test data generated (local fallback)",
-        description: `Generated ${sourceData.length} test records using local generation`,
-        variant: "destructive"
-      });
-    }, 500);
-  };
-
-  const generateSampleValue = (dataType: string, index: number): any => {
-    switch (dataType.toLowerCase()) {
-      case 'int':
-      case 'integer':
-      case 'bigint':
-        return 1000 + index;
-      case 'varchar':
-      case 'string':
-      case 'text':
-        return `Sample_${index}`;
-      case 'decimal':
-      case 'float':
-      case 'double':
-        return (100.50 + index).toFixed(2);
-      case 'date':
-        return new Date(2024, 0, index).toISOString().split('T')[0];
-      case 'datetime':
-      case 'timestamp':
-        return new Date(2024, 0, index, 10, 0, 0).toISOString();
-      case 'boolean':
-      case 'bit':
-        return index % 2 === 0;
-      default:
-        return `Value_${index}`;
-    }
-  };
-
-  const applyTransformation = (value: any, transformation: string): any => {
-    // Simple transformation logic for demo purposes
-    if (transformation.toLowerCase().includes('lower')) {
-      return String(value).toLowerCase();
-    }
-    if (transformation.toLowerCase().includes('upper')) {
-      return String(value).toUpperCase();
-    }
-    if (transformation.toLowerCase().includes('concat')) {
-      return `${value}_transformed`;
-    }
-    // Default: return original value
-    return value;
-  };
-
-  const generateSQLQuery = (mappings: MappingRow[]): string => {
-    const sourceTablesSet = new Set(mappings.map(m => `${m.sourceColumn.malcode}.${m.sourceColumn.table}`));
-    const sourceTables = Array.from(sourceTablesSet);
-    
-    const selectClauses = mappings.map(mapping => {
-      const sourceCol = `${mapping.sourceColumn.malcode}_${mapping.sourceColumn.table}.${mapping.sourceColumn.column}`;
-      const targetCol = `${mapping.targetColumn.malcode}_${mapping.targetColumn.table}_${mapping.targetColumn.column}`;
-      
-      if (mapping.transformation) {
-        return `  ${mapping.transformation.replace(/\b\w+\b/g, sourceCol)} AS ${targetCol}`;
-      } else {
-        return `  ${sourceCol} AS ${targetCol}`;
-      }
-    });
-    
-    let query = `SELECT\n${selectClauses.join(',\n')}\nFROM`;
-    
-    if (sourceTables.length === 1) {
-      query += ` ${sourceTables[0]}`;
-    } else {
-      query += ` ${sourceTables[0]}`;
-      sourceTables.slice(1).forEach((table, index) => {
-        const joinCondition = mappings.find(m => 
-          m.join && (m.sourceColumn.malcode + '.' + m.sourceColumn.table === table)
-        )?.join || `${sourceTables[0]}.id = ${table}.id`;
-        
-        query += `\nJOIN ${table} ON ${joinCondition}`;
-      });
-    }
-    
-    return query + ';';
-  };
-
-  const handleSQLChange = (newSQL: string) => {
-    if (generatedData) {
-      setGeneratedData({ ...generatedData, query: newSQL });
-    }
-  };
-
-  const handleSourceDataChange = (newData: TestRecord[]) => {
-    if (generatedData) {
-      setGeneratedData({ ...generatedData, sourceData: newData });
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied to clipboard",
-      description: "Content has been copied to your clipboard",
-    });
-  };
-
-  const downloadAsCSV = (data: TestRecord[], filename: string) => {
-    if (data.length === 0) return;
-    
-    const headers = Object.keys(data[0]);
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row => headers.map(header => 
-        typeof row[header] === 'string' ? `"${row[header]}"` : row[header]
-      ).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
+  const downloadTestData = () => {
+    const dataStr = JSON.stringify(generatedData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename;
+    link.download = `test_data_${mappingFile.name.replace(/\s+/g, '_')}.json`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Download started",
+      description: "Test data file download initiated",
+    });
   };
+
+  if (mappingFile.rows.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Test Data Generator
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Database className="h-12 w-12 text-gray-400 mb-4" />
+            <p className="text-lg text-gray-500 mb-2">No mapping data available</p>
+            <p className="text-sm text-gray-400">Upload or create mappings first to generate test data</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <Card className="w-full">
+      {/* Generation Controls */}
+      <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <Play className="h-5 w-5" />
-                Test Data Generator (FastAPI Integration)
+                <Database className="h-5 w-5" />
+                Test Data Generator
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
-                Generate sample data and validation queries using FastAPI backend (localhost:3000)
+                Generate synthetic test data based on your mapping configuration
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline">
-                {mappingsToUse.length} approved mappings
-              </Badge>
+            <div className="flex gap-2">
+              {hasGenerated && (
+                <Button variant="outline" onClick={downloadTestData} size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Data
+                </Button>
+              )}
               <Button 
-                onClick={generateSampleData} 
-                disabled={isGenerating || mappingsToUse.length === 0}
+                onClick={generateTestData} 
+                disabled={isGenerating}
                 size="sm"
               >
                 {isGenerating ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4 mr-2" />
                 )}
-                {isGenerating ? 'Generating...' : 'Generate via FastAPI'}
+                {isGenerating ? 'Generating...' : 'Generate Test Data'}
               </Button>
             </div>
           </div>
-          
-          {apiError && (
-            <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              <p className="text-sm text-yellow-800">
-                FastAPI Error: {apiError}. Using local fallback generation.
-              </p>
-            </div>
-          )}
         </CardHeader>
-        
         <CardContent>
-          {mappingsToUse.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>No approved mappings available for test data generation.</p>
-              <p className="text-sm">Approve some mappings first to generate test data.</p>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-blue-600">{mappingFile.rows.length}</div>
+              <div className="text-sm text-muted-foreground">Total Mappings</div>
             </div>
-          ) : generatedData ? (
-            <Tabs defaultValue="query" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="query">Generated Query</TabsTrigger>
-                <TabsTrigger value="source">Source Data</TabsTrigger>
-                <TabsTrigger value="target">Target Data</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="query" className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">SQL Validation Query</h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => copyToClipboard(generatedData.query)}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy SQL
-                  </Button>
-                </div>
-                <div className="relative">
-                  <Textarea 
-                    value={generatedData.query}
-                    readOnly
-                    className="font-mono text-sm min-h-[200px]"
-                  />
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  <p>Use this query to validate your mappings against the test data.</p>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="source" className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Source Test Data</h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => downloadAsCSV(generatedData.sourceData, 'source_test_data.csv')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download CSV
-                  </Button>
-                </div>
-                <div className="border rounded-lg">
-                  <ScrollArea className="h-[300px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {Object.keys(generatedData.sourceData[0] || {}).map(key => (
-                            <TableHead key={key} className="min-w-[120px]">
-                              {key}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {generatedData.sourceData.map((row, index) => (
-                          <TableRow key={index}>
-                            {Object.values(row).map((value, cellIndex) => (
-                              <TableCell key={cellIndex} className="font-mono text-sm">
-                                {String(value)}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="target" className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium">Expected Target Data</h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => downloadAsCSV(generatedData.targetData, 'target_test_data.csv')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download CSV
-                  </Button>
-                </div>
-                <div className="border rounded-lg">
-                  <ScrollArea className="h-[300px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {Object.keys(generatedData.targetData[0] || {}).map(key => (
-                            <TableHead key={key} className="min-w-[120px]">
-                              {key}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {generatedData.targetData.map((row, index) => (
-                          <TableRow key={index}>
-                            {Object.values(row).map((value, cellIndex) => (
-                              <TableCell key={cellIndex} className="font-mono text-sm">
-                                {String(value)}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              </TabsContent>
-            </Tabs>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Click "Generate via FastAPI" to create sample data and validation queries using the backend service.</p>
-              <p className="text-xs mt-2">Make sure your FastAPI server is running on localhost:3000</p>
+            <div>
+              <div className="text-2xl font-bold text-green-600">{generatedData.length}</div>
+              <div className="text-sm text-muted-foreground">Generated Records</div>
             </div>
-          )}
+            <div>
+              <div className="text-2xl font-bold text-purple-600">
+                {new Set(mappingFile.rows.map(r => r.sourceColumn.table)).size}
+              </div>
+              <div className="text-sm text-muted-foreground">Source Tables</div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* SQL Data Editor - only show if data is generated */}
-      {generatedData && (
-        <SQLDataEditor
-          originalSQL={generatedData.query}
-          originalData={generatedData.sourceData}
-          onSQLChange={handleSQLChange}
-          onDataChange={handleSourceDataChange}
-        />
-      )}
+      {/* Results and Tools */}
+      {hasGenerated && (
+        <Tabs defaultValue="data" className="space-y-4">
+          <TabsList className="grid grid-cols-4 w-full">
+            <TabsTrigger value="data">Generated Data</TabsTrigger>
+            <TabsTrigger value="sql">SQL Editor</TabsTrigger>
+            <TabsTrigger value="validation">AI Validation</TabsTrigger>
+            <TabsTrigger value="lineage">
+              <GitBranch className="h-4 w-4 mr-2" />
+              Column Lineage
+            </TabsTrigger>
+          </TabsList>
 
-      {/* SQL Validator - only show if data is generated */}
-      {generatedData && (
-        <SQLValidator
-          sqlQuery={generatedData.query}
-          sourceData={generatedData.sourceData}
-        />
+          <TabsContent value="data">
+            <Card>
+              <CardHeader>
+                <CardTitle>Generated Test Data</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Preview of generated test records based on your mappings
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="border rounded-lg">
+                  <ScrollArea className="h-[400px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {generatedData.length > 0 && Object.keys(generatedData[0]).map(key => (
+                            <TableHead key={key} className="min-w-[120px]">
+                              {key.replace(/_/g, ' ').toUpperCase()}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {generatedData.map((row, index) => (
+                          <TableRow key={index}>
+                            {Object.entries(row).map(([key, value], cellIndex) => (
+                              <TableCell key={cellIndex} className="font-mono text-sm">
+                                {key === 'validation_status' ? (
+                                  <Badge variant={value === 'PENDING' ? 'secondary' : 'default'}>
+                                    {String(value)}
+                                  </Badge>
+                                ) : (
+                                  String(value)
+                                )}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="sql">
+            <SQLDataEditor
+              originalSQL={sqlQuery}
+              originalData={generatedData}
+              onSQLChange={setSqlQuery}
+              onDataChange={setGeneratedData}
+            />
+          </TabsContent>
+
+          <TabsContent value="validation">
+            <SQLValidator
+              sqlQuery={sqlQuery}
+              sourceData={generatedData}
+            />
+          </TabsContent>
+
+          <TabsContent value="lineage">
+            <ColumnLineageView mappingFile={mappingFile} />
+          </TabsContent>
+        </Tabs>
       )}
     </div>
   );
