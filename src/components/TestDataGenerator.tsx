@@ -10,6 +10,8 @@ import { MappingFile, MappingRow } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { generateSQLAndTestData } from "@/lib/apiService";
 import { Play, Copy, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import SQLDataEditor from "./SQLDataEditor";
+import SQLValidator from "./SQLValidator";
 
 interface TestDataGeneratorProps {
   mappingFile: MappingFile;
@@ -198,6 +200,18 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
     return query + ';';
   };
 
+  const handleSQLChange = (newSQL: string) => {
+    if (generatedData) {
+      setGeneratedData({ ...generatedData, query: newSQL });
+    }
+  };
+
+  const handleSourceDataChange = (newData: TestRecord[]) => {
+    if (generatedData) {
+      setGeneratedData({ ...generatedData, sourceData: newData });
+    }
+  };
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
@@ -227,173 +241,193 @@ const TestDataGenerator = ({ mappingFile, selectedMappings }: TestDataGeneratorP
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Play className="h-5 w-5" />
-              Test Data Generator (FastAPI Integration)
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Generate sample data and validation queries using FastAPI backend (localhost:3000)
-            </p>
+    <div className="space-y-6">
+      <Card className="w-full">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Play className="h-5 w-5" />
+                Test Data Generator (FastAPI Integration)
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Generate sample data and validation queries using FastAPI backend (localhost:3000)
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">
+                {mappingsToUse.length} approved mappings
+              </Badge>
+              <Button 
+                onClick={generateSampleData} 
+                disabled={isGenerating || mappingsToUse.length === 0}
+                size="sm"
+              >
+                {isGenerating ? (
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4 mr-2" />
+                )}
+                {isGenerating ? 'Generating...' : 'Generate via FastAPI'}
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">
-              {mappingsToUse.length} approved mappings
-            </Badge>
-            <Button 
-              onClick={generateSampleData} 
-              disabled={isGenerating || mappingsToUse.length === 0}
-              size="sm"
-            >
-              {isGenerating ? (
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4 mr-2" />
-              )}
-              {isGenerating ? 'Generating...' : 'Generate via FastAPI'}
-            </Button>
-          </div>
-        </div>
+          
+          {apiError && (
+            <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <AlertTriangle className="h-4 w-4 text-yellow-600" />
+              <p className="text-sm text-yellow-800">
+                FastAPI Error: {apiError}. Using local fallback generation.
+              </p>
+            </div>
+          )}
+        </CardHeader>
         
-        {apiError && (
-          <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <p className="text-sm text-yellow-800">
-              FastAPI Error: {apiError}. Using local fallback generation.
-            </p>
-          </div>
-        )}
-      </CardHeader>
-      
-      <CardContent>
-        {mappingsToUse.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No approved mappings available for test data generation.</p>
-            <p className="text-sm">Approve some mappings first to generate test data.</p>
-          </div>
-        ) : generatedData ? (
-          <Tabs defaultValue="query" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="query">Generated Query</TabsTrigger>
-              <TabsTrigger value="source">Source Data</TabsTrigger>
-              <TabsTrigger value="target">Target Data</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="query" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">SQL Validation Query</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => copyToClipboard(generatedData.query)}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy SQL
-                </Button>
-              </div>
-              <div className="relative">
-                <Textarea 
-                  value={generatedData.query}
-                  readOnly
-                  className="font-mono text-sm min-h-[200px]"
-                />
-              </div>
-              <div className="text-sm text-muted-foreground">
-                <p>Use this query to validate your mappings against the test data.</p>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="source" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Source Test Data</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => downloadAsCSV(generatedData.sourceData, 'source_test_data.csv')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download CSV
-                </Button>
-              </div>
-              <div className="border rounded-lg">
-                <ScrollArea className="h-[300px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {Object.keys(generatedData.sourceData[0] || {}).map(key => (
-                          <TableHead key={key} className="min-w-[120px]">
-                            {key}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {generatedData.sourceData.map((row, index) => (
-                        <TableRow key={index}>
-                          {Object.values(row).map((value, cellIndex) => (
-                            <TableCell key={cellIndex} className="font-mono text-sm">
-                              {String(value)}
-                            </TableCell>
+        <CardContent>
+          {mappingsToUse.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No approved mappings available for test data generation.</p>
+              <p className="text-sm">Approve some mappings first to generate test data.</p>
+            </div>
+          ) : generatedData ? (
+            <Tabs defaultValue="query" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="query">Generated Query</TabsTrigger>
+                <TabsTrigger value="source">Source Data</TabsTrigger>
+                <TabsTrigger value="target">Target Data</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="query" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">SQL Validation Query</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => copyToClipboard(generatedData.query)}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy SQL
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Textarea 
+                    value={generatedData.query}
+                    readOnly
+                    className="font-mono text-sm min-h-[200px]"
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p>Use this query to validate your mappings against the test data.</p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="source" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Source Test Data</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadAsCSV(generatedData.sourceData, 'source_test_data.csv')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download CSV
+                  </Button>
+                </div>
+                <div className="border rounded-lg">
+                  <ScrollArea className="h-[300px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(generatedData.sourceData[0] || {}).map(key => (
+                            <TableHead key={key} className="min-w-[120px]">
+                              {key}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="target" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Expected Target Data</h3>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => downloadAsCSV(generatedData.targetData, 'target_test_data.csv')}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download CSV
-                </Button>
-              </div>
-              <div className="border rounded-lg">
-                <ScrollArea className="h-[300px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {Object.keys(generatedData.targetData[0] || {}).map(key => (
-                          <TableHead key={key} className="min-w-[120px]">
-                            {key}
-                          </TableHead>
+                      </TableHeader>
+                      <TableBody>
+                        {generatedData.sourceData.map((row, index) => (
+                          <TableRow key={index}>
+                            {Object.values(row).map((value, cellIndex) => (
+                              <TableCell key={cellIndex} className="font-mono text-sm">
+                                {String(value)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
                         ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {generatedData.targetData.map((row, index) => (
-                        <TableRow key={index}>
-                          {Object.values(row).map((value, cellIndex) => (
-                            <TableCell key={cellIndex} className="font-mono text-sm">
-                              {String(value)}
-                            </TableCell>
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="target" className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium">Expected Target Data</h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => downloadAsCSV(generatedData.targetData, 'target_test_data.csv')}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download CSV
+                  </Button>
+                </div>
+                <div className="border rounded-lg">
+                  <ScrollArea className="h-[300px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          {Object.keys(generatedData.targetData[0] || {}).map(key => (
+                            <TableHead key={key} className="min-w-[120px]">
+                              {key}
+                            </TableHead>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              </div>
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>Click "Generate via FastAPI" to create sample data and validation queries using the backend service.</p>
-            <p className="text-xs mt-2">Make sure your FastAPI server is running on localhost:3000</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {generatedData.targetData.map((row, index) => (
+                          <TableRow key={index}>
+                            {Object.values(row).map((value, cellIndex) => (
+                              <TableCell key={cellIndex} className="font-mono text-sm">
+                                {String(value)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Click "Generate via FastAPI" to create sample data and validation queries using the backend service.</p>
+              <p className="text-xs mt-2">Make sure your FastAPI server is running on localhost:3000</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* SQL Data Editor - only show if data is generated */}
+      {generatedData && (
+        <SQLDataEditor
+          originalSQL={generatedData.query}
+          originalData={generatedData.sourceData}
+          onSQLChange={handleSQLChange}
+          onDataChange={handleSourceDataChange}
+        />
+      )}
+
+      {/* SQL Validator - only show if data is generated */}
+      {generatedData && (
+        <SQLValidator
+          sqlQuery={generatedData.query}
+          sourceData={generatedData.sourceData}
+        />
+      )}
+    </div>
   );
 };
 
