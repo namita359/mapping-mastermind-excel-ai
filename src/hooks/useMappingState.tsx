@@ -1,3 +1,4 @@
+
 import { MappingStatus, MappingRow, MappingFile } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useMappingContext } from '@/components/MappingProvider';
@@ -13,7 +14,7 @@ export const useMappingState = () => {
   } = useMappingContext();
   const { toast } = useToast();
 
-  const handleRowSelect = (row: MappingRow) => {
+  const handleRowSelect = (row: MappingRow | null) => {
     setSelectedRow(row);
   };
 

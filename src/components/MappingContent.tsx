@@ -37,6 +37,10 @@ const MappingContent = ({
   onCommentAdd,
   onAIAssistantClose
 }: MappingContentProps) => {
+  const handleReviewPanelClose = () => {
+    onRowSelect(null as any);
+  };
+
   return (
     <div className="flex-1 flex overflow-hidden">
       {/* Main Table Area */}
@@ -93,6 +97,7 @@ const MappingContent = ({
               selectedRow={selectedRow} 
               onStatusChange={onStatusChange}
               onCommentAdd={onCommentAdd}
+              onClose={handleReviewPanelClose}
             />
           </div>
         </div>

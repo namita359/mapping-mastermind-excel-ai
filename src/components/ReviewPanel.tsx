@@ -12,9 +12,10 @@ interface ReviewPanelProps {
   selectedRow: MappingRow | null;
   onStatusChange: (rowId: string, status: MappingStatus) => void;
   onCommentAdd: (rowId: string, comment: string) => void;
+  onClose: () => void;
 }
 
-const ReviewPanel = ({ selectedRow, onStatusChange, onCommentAdd }: ReviewPanelProps) => {
+const ReviewPanel = ({ selectedRow, onStatusChange, onCommentAdd, onClose }: ReviewPanelProps) => {
   const [comment, setComment] = useState("");
   const { toast } = useToast();
 
@@ -55,9 +56,20 @@ const ReviewPanel = ({ selectedRow, onStatusChange, onCommentAdd }: ReviewPanelP
     <div className="border rounded-md p-4 bg-white overflow-y-auto h-full">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium">Mapping Details</h3>
-        <Badge className={getStatusColor(selectedRow.status)}>
-          {selectedRow.status.charAt(0).toUpperCase() + selectedRow.status.slice(1)}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge className={getStatusColor(selectedRow.status)}>
+            {selectedRow.status.charAt(0).toUpperCase() + selectedRow.status.slice(1)}
+          </Badge>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onClose}
+            className="h-8 w-8 p-0"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close panel</span>
+          </Button>
+        </div>
       </div>
       
       <div className="grid grid-cols-2 gap-4 mb-4">
