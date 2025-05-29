@@ -20,6 +20,17 @@ const MappingModals = ({
   onFileUpload,
   onAddMapping
 }: MappingModalsProps) => {
+  const emptyMappingFile: MappingFile = {
+    id: "temp",
+    rows: [],
+    name: "",
+    sourceSystem: "",
+    targetSystem: "",
+    createdBy: "",
+    status: "draft",
+    createdAt: new Date()
+  };
+
   return (
     <>
       <UploadModal
@@ -29,7 +40,7 @@ const MappingModals = ({
       />
 
       <AddMappingForm
-        mappingFile={{ rows: [], name: "", sourceSystem: "", targetSystem: "", createdBy: "", status: "draft" }}
+        mappingFile={emptyMappingFile}
         onAddMapping={onAddMapping}
         isOpen={showAddMappingModal}
         onClose={onAddMappingModalClose}
