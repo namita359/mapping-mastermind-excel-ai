@@ -1,8 +1,8 @@
+
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import MappingTable from "@/components/MappingTable";
-import MappingDetails from "@/components/MappingDetails";
 import AIAssistant from "@/components/AIAssistant";
 import { MappingFile, MappingRow, MappingStatus } from "@/lib/types";
 
@@ -55,8 +55,8 @@ const MappingContent = ({
 
             <MappingTable
               rows={rowsToDisplay}
-              selectedRow={selectedRow}
               onRowSelect={onRowSelect}
+              onStatusChange={onStatusChange}
             />
           </div>
         </ScrollArea>
