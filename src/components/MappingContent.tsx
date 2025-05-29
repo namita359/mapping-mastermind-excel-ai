@@ -55,6 +55,7 @@ const MappingContent = ({
 
             <MappingTable
               rows={rowsToDisplay}
+              selectedRow={selectedRow}
               onRowSelect={onRowSelect}
               onStatusChange={onStatusChange}
             />

@@ -12,15 +12,14 @@ import TablePagination from "./table/TablePagination";
 
 interface MappingTableProps {
   rows: MappingRow[];
+  selectedRow?: MappingRow | null;
   onRowSelect: (row: MappingRow) => void;
   onStatusChange: (rowId: string, status: MappingStatus) => void;
 }
 
 const ROWS_PER_PAGE = 10;
 
-const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) => {
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-
+const MappingTable = ({ rows, selectedRow, onRowSelect, onStatusChange }: MappingTableProps) => {
   // Custom hooks for table functionality
   const {
     filters,
@@ -73,7 +72,6 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
   };
 
   const handleRowClick = (row: MappingRow) => {
-    setSelectedRowId(row.id);
     onRowSelect(row);
   };
 
@@ -123,7 +121,7 @@ const MappingTable = ({ rows, onRowSelect, onStatusChange }: MappingTableProps) 
                   key={row.id}
                   row={row}
                   index={startIndex + index}
-                  isSelected={selectedRowId === row.id}
+                  isSelected={selectedRow?.id === row.id}
                   onRowClick={handleRowClick}
                   onStatusChange={onStatusChange}
                 />
