@@ -1,5 +1,6 @@
 
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import MappingHeader from '@/components/MappingHeader';
 import MappingContent from '@/components/MappingContent';
@@ -27,16 +28,15 @@ const MappingPageContent = () => {
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
 
-  // Automatically show AI Assistant when a row is selected
-  useEffect(() => {
-    if (selectedRow) {
-      console.log('Row selected, showing AI Assistant:', selectedRow.id);
-      setShowAIAssistant(true);
-    }
-  }, [selectedRow]);
+  console.log('showAIAssistant state:', showAIAssistant);
 
   const rowsToDisplay = getFilteredRows();
   const counts = getStatusCounts();
+
+  const handleAIAssistantToggle = () => {
+    console.log('AI Assistant toggle clicked, current state:', showAIAssistant);
+    setShowAIAssistant(!showAIAssistant);
+  };
 
   if (isLoading) {
     return (
@@ -61,7 +61,7 @@ const MappingPageContent = () => {
         onUpload={() => setShowUploadModal(true)}
         onAddMapping={() => setShowAddMappingModal(true)}
         onStatusFilterClick={handleStatusFilterClick}
-        onAIAssistantToggle={() => setShowAIAssistant(!showAIAssistant)}
+        onAIAssistantToggle={handleAIAssistantToggle}
         showAIAssistant={showAIAssistant}
       />
 
@@ -98,3 +98,4 @@ const Mapping = () => {
 };
 
 export default Mapping;
+

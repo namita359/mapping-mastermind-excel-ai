@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,8 @@ const MappingContent = ({
     onRowSelect(row);
   };
 
+  console.log('MappingContent render - showAIAssistant:', showAIAssistant);
+
   return (
     <div className="flex-1 flex overflow-hidden">
       <div className={`flex-1 transition-all duration-300 ${showAIAssistant ? 'mr-96' : ''}`}>
@@ -71,8 +74,10 @@ const MappingContent = ({
 
       {/* AI Assistant Sidebar */}
       {showAIAssistant && (
-        <div className="w-96 border-l bg-gray-50 overflow-hidden">
-          <AIAssistant onClose={onAIAssistantClose} mappingFile={mappingFile} />
+        <div className="w-96 border-l bg-gray-50 overflow-hidden fixed right-0 top-0 h-full z-10">
+          <div className="h-full">
+            <AIAssistant onClose={onAIAssistantClose} mappingFile={mappingFile} />
+          </div>
         </div>
       )}
     </div>
@@ -80,3 +85,4 @@ const MappingContent = ({
 };
 
 export default MappingContent;
+
