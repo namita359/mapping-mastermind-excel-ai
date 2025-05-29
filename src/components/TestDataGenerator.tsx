@@ -59,8 +59,16 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       const mappingInfo = {
         name: mappingFile.name,
         rows: mappingFile.rows.map(row => ({
-          sourceColumn: row.sourceColumn.column,
-          targetColumn: row.targetColumn.column,
+          sourceColumn: {
+            malcode: row.sourceColumn.malcode,
+            table: row.sourceColumn.table,
+            column: row.sourceColumn.column
+          },
+          targetColumn: {
+            malcode: row.targetColumn.malcode,
+            table: row.targetColumn.table,
+            column: row.targetColumn.column
+          },
           dataType: row.sourceColumn.dataType || 'string',
           transformationLogic: row.transformation || ''
         }))
