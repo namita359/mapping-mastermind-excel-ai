@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import MappingHeader from '@/components/MappingHeader';
 import MappingContent from '@/components/MappingContent';
@@ -26,6 +26,14 @@ const MappingPageContent = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAddMappingModal, setShowAddMappingModal] = useState(false);
   const [showAIAssistant, setShowAIAssistant] = useState(false);
+
+  // Automatically show AI Assistant when a row is selected
+  useEffect(() => {
+    if (selectedRow) {
+      console.log('Row selected, showing AI Assistant:', selectedRow.id);
+      setShowAIAssistant(true);
+    }
+  }, [selectedRow]);
 
   const rowsToDisplay = getFilteredRows();
   const counts = getStatusCounts();
