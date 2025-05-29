@@ -41,9 +41,20 @@ const MappingTableRow = ({
     }
   };
 
+  const handleRowClick = (e: React.MouseEvent) => {
+    // Don't trigger row click if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('[role="menuitem"]')) {
+      return;
+    }
+    
+    console.log('Row clicked:', row.id);
+    onRowClick(row);
+  };
+
   return (
     <TableRow 
-      onClick={() => onRowClick(row)}
+      onClick={handleRowClick}
       className={cn(
         "cursor-pointer hover:bg-gray-50",
         isSelected ? "bg-blue-50" : ""

@@ -30,6 +30,12 @@ const MappingContent = ({
   onAIAssistantClose
 }: MappingContentProps) => {
 
+  const handleRowSelect = (row: MappingRow) => {
+    console.log('MappingContent handleRowSelect called with:', row.id);
+    console.log('Current selectedRow:', selectedRow?.id);
+    onRowSelect(row);
+  };
+
   return (
     <div className="flex-1 flex overflow-hidden">
       <div className={`flex-1 transition-all duration-300 ${showAIAssistant ? 'mr-96' : ''}`}>
@@ -56,7 +62,7 @@ const MappingContent = ({
             <MappingTable
               rows={rowsToDisplay}
               selectedRow={selectedRow}
-              onRowSelect={onRowSelect}
+              onRowSelect={handleRowSelect}
               onStatusChange={onStatusChange}
             />
           </div>

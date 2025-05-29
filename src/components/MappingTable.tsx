@@ -72,6 +72,7 @@ const MappingTable = ({ rows, selectedRow, onRowSelect, onStatusChange }: Mappin
   };
 
   const handleRowClick = (row: MappingRow) => {
+    console.log('MappingTable handleRowClick called with:', row.id);
     onRowSelect(row);
   };
 
