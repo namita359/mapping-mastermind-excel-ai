@@ -5,20 +5,18 @@ import { MappingFile, MappingRow } from "@/lib/types";
 
 interface MappingModalsProps {
   showUploadModal: boolean;
-  showAddMappingForm: boolean;
-  mappingFile: MappingFile;
+  showAddMappingModal: boolean;
   onUploadModalClose: () => void;
-  onAddMappingFormClose: () => void;
+  onAddMappingModalClose: () => void;
   onFileUpload: (file: File, importedMappingFile?: MappingFile) => void;
   onAddMapping: (newRow: MappingRow) => void;
 }
 
 const MappingModals = ({
   showUploadModal,
-  showAddMappingForm,
-  mappingFile,
+  showAddMappingModal,
   onUploadModalClose,
-  onAddMappingFormClose,
+  onAddMappingModalClose,
   onFileUpload,
   onAddMapping
 }: MappingModalsProps) => {
@@ -31,10 +29,10 @@ const MappingModals = ({
       />
 
       <AddMappingForm
-        mappingFile={mappingFile}
+        mappingFile={{ rows: [], name: "", sourceSystem: "", targetSystem: "", createdBy: "", status: "draft" }}
         onAddMapping={onAddMapping}
-        isOpen={showAddMappingForm}
-        onClose={onAddMappingFormClose}
+        isOpen={showAddMappingModal}
+        onClose={onAddMappingModalClose}
       />
     </>
   );

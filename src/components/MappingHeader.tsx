@@ -3,36 +3,38 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import DownloadButton from "@/components/DownloadButton";
 import SearchBar from "@/components/SearchBar";
-import { MappingFile } from "@/lib/types";
+import { MappingFile, MappingStatus } from "@/lib/types";
 import { Upload, Download, Plus, Sparkles, Menu, Info } from "lucide-react";
 
 interface MappingHeaderProps {
-  showSidebar: boolean;
-  setShowSidebar: (show: boolean) => void;
-  hasData: boolean;
   mappingFile: MappingFile;
-  onUploadClick: () => void;
-  onAddMappingClick: () => void;
-  onAIAssistantToggle: () => void;
-  showAIAssistant: boolean;
+  counts: { approved: number; pending: number; rejected: number; draft: number };
+  statusFilter: MappingStatus | null;
+  searchLoading: boolean;
   onSearch: (query: string, filters: Record<string, string>) => void;
   onAISearch: (query: string) => void;
-  searchLoading: boolean;
+  onUpload: () => void;
+  onAddMapping: () => void;
+  onStatusFilterClick: (status: MappingStatus | null) => void;
+  onAIAssistantToggle: () => void;
+  showAIAssistant: boolean;
 }
 
 const MappingHeader = ({
-  showSidebar,
-  setShowSidebar,
-  hasData,
   mappingFile,
-  onUploadClick,
-  onAddMappingClick,
-  onAIAssistantToggle,
-  showAIAssistant,
+  counts,
+  statusFilter,
+  searchLoading,
   onSearch,
   onAISearch,
-  searchLoading
+  onUpload,
+  onAddMapping,
+  onStatusFilterClick,
+  onAIAssistantToggle,
+  showAIAssistant
 }: MappingHeaderProps) => {
+  const hasData = mappingFile.rows.length > 0;
+
   return (
     <header className="bg-white shadow-sm border-b flex-shrink-0">
       <div className="px-4 py-3">
@@ -40,13 +42,6 @@ const MappingHeader = ({
           {/* Left side - Logo and Navigation */}
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSidebar(!showSidebar)}
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
               <h1 className="text-xl font-bold text-gray-900">Data Mapping Hub</h1>
             </div>
             
@@ -84,11 +79,11 @@ const MappingHeader = ({
               </DownloadButton>
             )}
             
-            <Button onClick={onAddMappingClick} size="sm" className="bg-green-600 hover:bg-green-700">
+            <Button onClick={onAddMapping} size="sm" className="bg-green-600 hover:bg-green-700">
               <Plus className="mr-1 h-4 w-4" /> Add Mapping
             </Button>
             
-            <Button onClick={onUploadClick} size="sm">
+            <Button onClick={onUpload} size="sm">
               <Upload className="mr-1 h-4 w-4" /> Upload
             </Button>
           </div>
