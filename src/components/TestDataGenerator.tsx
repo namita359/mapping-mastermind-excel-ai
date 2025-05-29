@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { MappingFile } from "@/lib/types";
@@ -60,10 +59,10 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       const mappingInfo = {
         name: mappingFile.name,
         rows: mappingFile.rows.map(row => ({
-          sourceColumn: row.sourceColumn,
-          targetColumn: row.targetColumn,
-          dataType: row.dataType || 'string',
-          transformationLogic: row.transformationLogic
+          sourceColumn: row.sourceColumn.column,
+          targetColumn: row.targetColumn.column,
+          dataType: row.sourceColumn.dataType || 'string',
+          transformationLogic: row.transformation || ''
         }))
       };
 
