@@ -1,7 +1,7 @@
 
 import { MappingRow } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useMappingContext } from '@/components/MappingProvider';
+import { useSupabaseMappingContext } from '@/components/SupabaseMappingProvider';
 
 export const useMappingSearch = () => {
   const { 
@@ -11,7 +11,7 @@ export const useMappingSearch = () => {
     searchLoading, 
     setSearchLoading,
     statusFilter 
-  } = useMappingContext();
+  } = useSupabaseMappingContext();
   const { toast } = useToast();
 
   const handleSearch = (query: string, filters: Record<string, string>) => {

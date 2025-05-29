@@ -9,7 +9,163 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      mapping_columns: {
+        Row: {
+          column_description: string | null
+          column_name: string
+          created_at: string
+          data_type: string
+          default_value: string | null
+          id: string
+          is_nullable: boolean | null
+          is_primary_key: boolean | null
+          malcode: string
+          malcode_description: string | null
+          table_description: string | null
+          table_name: string
+        }
+        Insert: {
+          column_description?: string | null
+          column_name: string
+          created_at?: string
+          data_type?: string
+          default_value?: string | null
+          id?: string
+          is_nullable?: boolean | null
+          is_primary_key?: boolean | null
+          malcode: string
+          malcode_description?: string | null
+          table_description?: string | null
+          table_name: string
+        }
+        Update: {
+          column_description?: string | null
+          column_name?: string
+          created_at?: string
+          data_type?: string
+          default_value?: string | null
+          id?: string
+          is_nullable?: boolean | null
+          is_primary_key?: boolean | null
+          malcode?: string
+          malcode_description?: string | null
+          table_description?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
+      mapping_files: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          source_system: string
+          status: Database["public"]["Enums"]["mapping_status"]
+          target_system: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          source_system: string
+          status?: Database["public"]["Enums"]["mapping_status"]
+          target_system: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          source_system?: string
+          status?: Database["public"]["Enums"]["mapping_status"]
+          target_system?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      mapping_rows: {
+        Row: {
+          comments: string[] | null
+          created_at: string
+          created_by: string
+          id: string
+          join_clause: string | null
+          mapping_file_id: string
+          reviewed_at: string | null
+          reviewer: string | null
+          source_column_id: string
+          source_type: Database["public"]["Enums"]["source_type"]
+          status: Database["public"]["Enums"]["mapping_status"]
+          target_column_id: string
+          target_type: Database["public"]["Enums"]["target_type"]
+          transformation: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          comments?: string[] | null
+          created_at?: string
+          created_by: string
+          id?: string
+          join_clause?: string | null
+          mapping_file_id: string
+          reviewed_at?: string | null
+          reviewer?: string | null
+          source_column_id: string
+          source_type?: Database["public"]["Enums"]["source_type"]
+          status?: Database["public"]["Enums"]["mapping_status"]
+          target_column_id: string
+          target_type?: Database["public"]["Enums"]["target_type"]
+          transformation?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          comments?: string[] | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          join_clause?: string | null
+          mapping_file_id?: string
+          reviewed_at?: string | null
+          reviewer?: string | null
+          source_column_id?: string
+          source_type?: Database["public"]["Enums"]["source_type"]
+          status?: Database["public"]["Enums"]["mapping_status"]
+          target_column_id?: string
+          target_type?: Database["public"]["Enums"]["target_type"]
+          transformation?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mapping_rows_mapping_file_id_fkey"
+            columns: ["mapping_file_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapping_rows_source_column_id_fkey"
+            columns: ["source_column_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mapping_rows_target_column_id_fkey"
+            columns: ["target_column_id"]
+            isOneToOne: false
+            referencedRelation: "mapping_columns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +174,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      mapping_status: "draft" | "pending" | "approved" | "rejected"
+      source_type: "SRZ_ADLS"
+      target_type: "CZ_ADLS" | "SYNAPSE_TABLE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +291,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      mapping_status: ["draft", "pending", "approved", "rejected"],
+      source_type: ["SRZ_ADLS"],
+      target_type: ["CZ_ADLS", "SYNAPSE_TABLE"],
+    },
   },
 } as const

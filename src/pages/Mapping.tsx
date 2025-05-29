@@ -1,23 +1,18 @@
 
-import { useState } from "react";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/Sidebar";
-import MappingHeader from "@/components/MappingHeader";
-import MappingFilters from "@/components/MappingFilters";
-import MappingContent from "@/components/MappingContent";
-import MappingModals from "@/components/MappingModals";
-import MappingEmptyState from "@/components/MappingEmptyState";
-import MappingDataLoader from "@/components/MappingDataLoader";
-import { MappingProvider } from "@/components/MappingProvider";
-import { useMappingState } from "@/hooks/useMappingState";
-import { useMappingSearch } from "@/hooks/useMappingSearch";
-import { useMappingUI } from "@/hooks/useMappingUI";
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import MappingHeader from '@/components/MappingHeader';
+import MappingContent from '@/components/MappingContent';
+import MappingModals from '@/components/MappingModals';
+import { SupabaseMappingProvider, useSupabaseMappingContext } from '@/components/SupabaseMappingProvider';
+import { useMappingSearch } from '@/hooks/useMappingSearch';
 
-const MappingContent_Internal = () => {
+const MappingPageContent = () => {
   const {
     mappingFile,
     selectedRow,
     statusFilter,
+    isLoading,
     handleRowSelect,
     handleStatusChange,
     handleCommentAdd,
@@ -25,102 +20,60 @@ const MappingContent_Internal = () => {
     handleAddMapping,
     getStatusCounts,
     handleStatusFilterClick,
-  } = useMappingState();
+  } = useSupabaseMappingContext();
 
-  const {
-    searchLoading,
-    handleSearch,
-    handleAISearch,
-    getFilteredRows,
-  } = useMappingSearch();
+  const { searchLoading, handleSearch, handleAISearch, getFilteredRows } = useMappingSearch();
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAddMappingModal, setShowAddMappingModal] = useState(false);
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
 
-  const {
-    showUploadModal,
-    setShowUploadModal,
-    showAddMappingForm,
-    setShowAddMappingForm,
-    showAIAssistant,
-    setShowAIAssistant,
-    showSidebar,
-    setShowSidebar,
-  } = useMappingUI();
-
-  const counts = getStatusCounts();
   const rowsToDisplay = getFilteredRows();
-  const hasData = mappingFile.rows.length > 0;
+  const counts = getStatusCounts();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading mapping data from database...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header Navigation */}
       <MappingHeader
-        showSidebar={showSidebar}
-        setShowSidebar={setShowSidebar}
-        hasData={hasData}
         mappingFile={mappingFile}
-        onUploadClick={() => setShowUploadModal(true)}
-        onAddMappingClick={() => setShowAddMappingForm(true)}
-        onAIAssistantToggle={() => setShowAIAssistant(!showAIAssistant)}
-        showAIAssistant={showAIAssistant}
+        counts={counts}
+        statusFilter={statusFilter}
+        searchLoading={searchLoading}
         onSearch={handleSearch}
         onAISearch={handleAISearch}
-        searchLoading={searchLoading}
+        onUpload={() => setShowUploadModal(true)}
+        onAddMapping={() => setShowAddMappingModal(true)}
+        onStatusFilterClick={handleStatusFilterClick}
+        onAIAssistantToggle={() => setShowAIAssistant(!showAIAssistant)}
+        showAIAssistant={showAIAssistant}
       />
 
-      {/* Status Filters - only show when data exists */}
-      {hasData && (
-        <div className="bg-white border-b px-4 py-2 flex justify-end">
-          <MappingFilters
-            counts={counts}
-            statusFilter={statusFilter}
-            onStatusFilterClick={handleStatusFilterClick}
-          />
-        </div>
-      )}
+      <MappingContent
+        mappingFile={mappingFile}
+        rowsToDisplay={rowsToDisplay}
+        counts={counts}
+        selectedRow={selectedRow}
+        showAIAssistant={showAIAssistant}
+        onRowSelect={handleRowSelect}
+        onStatusChange={handleStatusChange}
+        onCommentAdd={handleCommentAdd}
+        onAIAssistantClose={() => setShowAIAssistant(false)}
+      />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Collapsible Sidebar */}
-        {showSidebar && (
-          <div className="w-64 bg-white border-r shadow-sm flex-shrink-0">
-            <SidebarProvider>
-              <AppSidebar
-                onUploadClick={() => setShowUploadModal(true)}
-                onDownloadClick={() => {}}
-              />
-            </SidebarProvider>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden min-w-0">
-          {hasData ? (
-            <MappingContent
-              mappingFile={mappingFile}
-              rowsToDisplay={rowsToDisplay}
-              counts={counts}
-              selectedRow={selectedRow}
-              showAIAssistant={showAIAssistant}
-              onRowSelect={handleRowSelect}
-              onStatusChange={handleStatusChange}
-              onCommentAdd={handleCommentAdd}
-              onAIAssistantClose={() => setShowAIAssistant(false)}
-            />
-          ) : (
-            <MappingEmptyState
-              onAddMappingClick={() => setShowAddMappingForm(true)}
-              onUploadClick={() => setShowUploadModal(true)}
-            />
-          )}
-        </div>
-      </div>
-      
-      {/* Modals */}
       <MappingModals
         showUploadModal={showUploadModal}
-        showAddMappingForm={showAddMappingForm}
-        mappingFile={mappingFile}
+        showAddMappingModal={showAddMappingModal}
         onUploadModalClose={() => setShowUploadModal(false)}
-        onAddMappingFormClose={() => setShowAddMappingForm(false)}
+        onAddMappingModalClose={() => setShowAddMappingModal(false)}
         onFileUpload={handleFileUpload}
         onAddMapping={handleAddMapping}
       />
@@ -128,29 +81,11 @@ const MappingContent_Internal = () => {
   );
 };
 
-const MappingWithLoader = () => {
-  const [isLoading, setIsLoading] = useState(true);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Loading Excel data...</h2>
-          <div className="w-16 h-16 border-4 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin mx-auto"></div>
-        </div>
-        <MappingDataLoader onLoadingChange={setIsLoading} />
-      </div>
-    );
-  }
-
-  return <MappingContent_Internal />;
-};
-
 const Mapping = () => {
   return (
-    <MappingProvider>
-      <MappingWithLoader />
-    </MappingProvider>
+    <SupabaseMappingProvider>
+      <MappingPageContent />
+    </SupabaseMappingProvider>
   );
 };
 
