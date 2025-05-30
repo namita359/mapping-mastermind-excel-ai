@@ -27,6 +27,10 @@ const Mapping = () => {
     setShowAIAssistant(false);
   };
 
+  const handleAIAssistantToggle = () => {
+    setShowAIAssistant(!showAIAssistant);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
