@@ -1,9 +1,9 @@
 
 import React, { createContext, useContext } from 'react';
 import { MappingFile, MappingRow, MappingStatus } from '@/lib/types';
-import { useSupabaseMapping } from '@/hooks/useSupabaseMapping';
+import { useAzureSqlMapping } from '@/hooks/useAzureSqlMapping';
 
-interface SupabaseMappingContextType {
+interface AzureSqlMappingContextType {
   mappingFile: MappingFile;
   setMappingFile: (file: MappingFile) => void;
   selectedRow: MappingRow | null;
@@ -24,26 +24,26 @@ interface SupabaseMappingContextType {
   handleStatusFilterClick: (status: MappingStatus | null) => void;
 }
 
-const SupabaseMappingContext = createContext<SupabaseMappingContextType | undefined>(undefined);
+const AzureSqlMappingContext = createContext<AzureSqlMappingContextType | undefined>(undefined);
 
-export const useSupabaseMappingContext = () => {
-  const context = useContext(SupabaseMappingContext);
+export const useAzureSqlMappingContext = () => {
+  const context = useContext(AzureSqlMappingContext);
   if (!context) {
-    throw new Error('useSupabaseMappingContext must be used within a SupabaseMappingProvider');
+    throw new Error('useAzureSqlMappingContext must be used within an AzureSqlMappingProvider');
   }
   return context;
 };
 
-interface SupabaseMappingProviderProps {
+interface AzureSqlMappingProviderProps {
   children: React.ReactNode;
 }
 
-export const SupabaseMappingProvider = ({ children }: SupabaseMappingProviderProps) => {
-  const supabaseMapping = useSupabaseMapping();
+export const AzureSqlMappingProvider = ({ children }: AzureSqlMappingProviderProps) => {
+  const azureSqlMapping = useAzureSqlMapping();
 
   return (
-    <SupabaseMappingContext.Provider value={supabaseMapping}>
+    <AzureSqlMappingContext.Provider value={azureSqlMapping}>
       {children}
-    </SupabaseMappingContext.Provider>
+    </AzureSqlMappingContext.Provider>
   );
 };

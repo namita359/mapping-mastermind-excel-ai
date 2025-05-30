@@ -8,9 +8,9 @@ import {
   saveMappingFile,
   updateMappingRowStatus,
   addMappingRowComment,
-} from '@/lib/supabaseService';
+} from '@/lib/azureSqlService';
 
-export const useSupabaseMapping = () => {
+export const useAzureSqlMapping = () => {
   const [mappingFile, setMappingFile] = useState<MappingFile>(createEmptyMappingFile());
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState<MappingRow | null>(null);
@@ -19,7 +19,7 @@ export const useSupabaseMapping = () => {
   const [statusFilter, setStatusFilter] = useState<MappingStatus | null>(null);
   const { toast } = useToast();
 
-  // Load data from Supabase on mount
+  // Load data from Azure SQL on mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -31,16 +31,16 @@ export const useSupabaseMapping = () => {
           setMappingFile(files[0]);
           toast({
             title: "Data loaded",
-            description: `Loaded ${files[0].rows.length} mappings from Supabase`,
+            description: `Loaded ${files[0].rows.length} mappings from Azure SQL Database`,
           });
         } else {
-          console.log("No mapping files found in Supabase");
+          console.log("No mapping files found in Azure SQL Database");
         }
       } catch (error) {
-        console.error('Error loading from Supabase:', error);
+        console.error('Error loading from Azure SQL:', error);
         toast({
           title: "Error loading data",
-          description: "Failed to load mapping data from database",
+          description: "Failed to load mapping data from Azure SQL Database",
           variant: "destructive"
         });
       } finally {
@@ -108,7 +108,7 @@ export const useSupabaseMapping = () => {
 
       toast({
         title: "Comment added",
-        description: "Comment has been saved to the database",
+        description: "Comment has been saved to Azure SQL Database",
       });
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -123,19 +123,19 @@ export const useSupabaseMapping = () => {
   const handleFileUpload = async (file: File, importedMappingFile?: MappingFile) => {
     if (importedMappingFile) {
       try {
-        // Save to Supabase
+        // Save to Azure SQL
         await saveMappingFile(importedMappingFile);
         setMappingFile(importedMappingFile);
         
         toast({
           title: "Mapping file imported and saved",
-          description: `${importedMappingFile.rows.length} mappings loaded and saved to database`,
+          description: `${importedMappingFile.rows.length} mappings loaded and saved to Azure SQL Database`,
         });
       } catch (error) {
         console.error('Error saving imported file:', error);
         toast({
           title: "Import successful, save failed",
-          description: "File was imported but failed to save to database",
+          description: "File was imported but failed to save to Azure SQL Database",
           variant: "destructive"
         });
         // Still set the file locally even if save failed
@@ -157,19 +157,19 @@ export const useSupabaseMapping = () => {
         rows: [...mappingFile.rows, newRow]
       };
       
-      // Save to Supabase
+      // Save to Azure SQL
       await saveMappingFile(updatedFile);
       setMappingFile(updatedFile);
       
       toast({
         title: "Mapping Added",
-        description: `New mapping saved to database successfully.`,
+        description: `New mapping saved to Azure SQL Database successfully.`,
       });
     } catch (error) {
       console.error('Error adding mapping:', error);
       toast({
         title: "Error",
-        description: "Failed to save new mapping to database",
+        description: "Failed to save new mapping to Azure SQL Database",
         variant: "destructive"
       });
     }

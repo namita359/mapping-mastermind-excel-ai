@@ -1,101 +1,42 @@
 
+import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAzureSqlMappingContext } from "@/components/AzureSqlMappingProvider";
+import MappingContent from "@/components/MappingContent";
+import TestDataGenerator from "@/components/TestDataGenerator";
+import { Loader2 } from "lucide-react";
 
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import MappingHeader from '@/components/MappingHeader';
-import MappingContent from '@/components/MappingContent';
-import MappingModals from '@/components/MappingModals';
-import { SupabaseMappingProvider, useSupabaseMappingContext } from '@/components/SupabaseMappingProvider';
-import { useMappingSearch } from '@/hooks/useMappingSearch';
-
-const MappingPageContent = () => {
-  const {
-    mappingFile,
-    selectedRow,
-    statusFilter,
-    isLoading,
-    handleRowSelect,
-    handleStatusChange,
-    handleCommentAdd,
-    handleFileUpload,
-    handleAddMapping,
-    getStatusCounts,
-    handleStatusFilterClick,
-  } = useSupabaseMappingContext();
-
-  const { searchLoading, handleSearch, handleAISearch, getFilteredRows } = useMappingSearch();
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showAddMappingModal, setShowAddMappingModal] = useState(false);
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
-
-  console.log('showAIAssistant state:', showAIAssistant);
-
-  const rowsToDisplay = getFilteredRows();
-  const counts = getStatusCounts();
-
-  const handleAIAssistantToggle = () => {
-    console.log('AI Assistant toggle clicked, current state:', showAIAssistant);
-    setShowAIAssistant(!showAIAssistant);
-  };
+const Mapping = () => {
+  const [activeTab, setActiveTab] = useState("mapping");
+  const { mappingFile, isLoading } = useAzureSqlMappingContext();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading mapping data from database...</p>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading mapping data from Azure SQL Database...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <MappingHeader
-        mappingFile={mappingFile}
-        counts={counts}
-        statusFilter={statusFilter}
-        searchLoading={searchLoading}
-        onSearch={handleSearch}
-        onAISearch={handleAISearch}
-        onUpload={() => setShowUploadModal(true)}
-        onAddMapping={() => setShowAddMappingModal(true)}
-        onStatusFilterClick={handleStatusFilterClick}
-        onAIAssistantToggle={handleAIAssistantToggle}
-        showAIAssistant={showAIAssistant}
-      />
-
-      <MappingContent
-        mappingFile={mappingFile}
-        rowsToDisplay={rowsToDisplay}
-        counts={counts}
-        selectedRow={selectedRow}
-        showAIAssistant={showAIAssistant}
-        onRowSelect={handleRowSelect}
-        onStatusChange={handleStatusChange}
-        onCommentAdd={handleCommentAdd}
-        onAIAssistantClose={() => setShowAIAssistant(false)}
-      />
-
-      <MappingModals
-        showUploadModal={showUploadModal}
-        showAddMappingModal={showAddMappingModal}
-        onUploadModalClose={() => setShowUploadModal(false)}
-        onAddMappingModalClose={() => setShowAddMappingModal(false)}
-        onFileUpload={handleFileUpload}
-        onAddMapping={handleAddMapping}
-      />
+    <div className="min-h-screen bg-background">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="mapping">Data Mapping</TabsTrigger>
+          <TabsTrigger value="testdata">Test Data Generation</TabsTrigger>
+        </TabsList>
+        <TabsContent value="mapping" className="space-y-4">
+          <MappingContent />
+        </TabsContent>
+        <TabsContent value="testdata" className="space-y-4">
+          <TestDataGenerator mappingFile={mappingFile} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
-const Mapping = () => {
-  return (
-    <SupabaseMappingProvider>
-      <MappingPageContent />
-    </SupabaseMappingProvider>
-  );
-};
-
 export default Mapping;
-
