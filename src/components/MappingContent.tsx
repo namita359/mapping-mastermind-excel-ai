@@ -19,11 +19,9 @@ interface MappingContentProps {
   rowsToDisplay: MappingRow[];
   counts: { approved: number; pending: number; rejected: number; draft: number };
   selectedRow: MappingRow | null;
-  showAIAssistant: boolean;
   onRowSelect: (row: MappingRow | null) => void;
   onStatusChange: (rowId: string, status: MappingStatus) => void;
   onCommentAdd: (rowId: string, comment: string) => void;
-  onAIAssistantClose: () => void;
 }
 
 const MappingContent = ({
@@ -31,11 +29,9 @@ const MappingContent = ({
   rowsToDisplay,
   counts,
   selectedRow,
-  showAIAssistant,
   onRowSelect,
   onStatusChange,
-  onCommentAdd,
-  onAIAssistantClose
+  onCommentAdd
 }: MappingContentProps) => {
   const { handleFileUpload, handleAddMapping } = useAzureSqlMappingContext();
   
@@ -44,7 +40,7 @@ const MappingContent = ({
     setShowUploadModal,
     showAddMappingForm,
     setShowAddMappingForm,
-    showAIAssistant: showAIAssistantState,
+    showAIAssistant,
     setShowAIAssistant,
   } = useMappingUI();
 
@@ -56,6 +52,10 @@ const MappingContent = ({
 
   const handleAIAssistantToggle = () => {
     setShowAIAssistant(!showAIAssistant);
+  };
+
+  const handleAIAssistantClose = () => {
+    setShowAIAssistant(false);
   };
 
   const handleUploadClick = () => {
@@ -178,7 +178,7 @@ const MappingContent = ({
       {showAIAssistant && (
         <div className="w-96 border-l bg-gray-50 overflow-hidden fixed right-0 top-0 h-full z-10">
           <div className="h-full">
-            <AIAssistant onClose={onAIAssistantClose} mappingFile={mappingFile} />
+            <AIAssistant onClose={handleAIAssistantClose} mappingFile={mappingFile} />
           </div>
         </div>
       )}

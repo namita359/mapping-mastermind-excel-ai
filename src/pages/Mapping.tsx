@@ -9,7 +9,6 @@ import { Loader2 } from "lucide-react";
 
 const Mapping = () => {
   const [activeTab, setActiveTab] = useState("mapping");
-  const [showAIAssistant, setShowAIAssistant] = useState(false);
   
   const { 
     mappingFile, 
@@ -22,14 +21,6 @@ const Mapping = () => {
   } = useAzureSqlMappingContext();
   
   const { getFilteredRows } = useMappingSearch();
-
-  const handleAIAssistantClose = () => {
-    setShowAIAssistant(false);
-  };
-
-  const handleAIAssistantToggle = () => {
-    setShowAIAssistant(!showAIAssistant);
-  };
 
   if (isLoading) {
     return (
@@ -58,11 +49,9 @@ const Mapping = () => {
             rowsToDisplay={rowsToDisplay}
             counts={counts}
             selectedRow={selectedRow}
-            showAIAssistant={showAIAssistant}
             onRowSelect={handleRowSelect}
             onStatusChange={handleStatusChange}
             onCommentAdd={handleCommentAdd}
-            onAIAssistantClose={handleAIAssistantClose}
           />
         </TabsContent>
         <TabsContent value="testdata" className="space-y-4">
