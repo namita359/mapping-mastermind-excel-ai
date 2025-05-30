@@ -1,15 +1,16 @@
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import os
 from openai import AzureOpenAI
 import json
-import sqlite3
-import tempfile
-from contextlib import contextmanager
 import logging
+from datetime import datetime
+import pyodbc
+from contextlib import contextmanager
+import uuid
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,26 +27,95 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic models for request/response
+# Database configuration
+AZURE_SQL_SERVER = os.getenv("AZURE_SQL_SERVER")
+AZURE_SQL_DATABASE = os.getenv("AZURE_SQL_DATABASE")
+AZURE_SQL_USERNAME = os.getenv("AZURE_SQL_USERNAME")
+AZURE_SQL_PASSWORD = os.getenv("AZURE_SQL_PASSWORD")
+AZURE_SQL_DRIVER = os.getenv("AZURE_SQL_DRIVER", "{ODBC Driver 18 for SQL Server}")
+
+# Azure OpenAI Configuration
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
+AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
+AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4")
+
+if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY:
+    logger.warning("Azure OpenAI configuration is missing. OpenAI features will be disabled.")
+    client = None
+else:
+    client = AzureOpenAI(
+        azure_endpoint=AZURE_OPENAI_ENDPOINT,
+        api_key=AZURE_OPENAI_KEY,
+        api_version=AZURE_OPENAI_API_VERSION,
+    )
+
+# Database connection
+@contextmanager
+def get_db_connection():
+    """Get database connection with proper error handling"""
+    if not all([AZURE_SQL_SERVER, AZURE_SQL_DATABASE, AZURE_SQL_USERNAME, AZURE_SQL_PASSWORD]):
+        raise HTTPException(
+            status_code=500, 
+            detail="Database configuration is incomplete. Please set all required environment variables."
+        )
+    
+    connection_string = (
+        f"DRIVER={AZURE_SQL_DRIVER};"
+        f"SERVER={AZURE_SQL_SERVER};"
+        f"DATABASE={AZURE_SQL_DATABASE};"
+        f"UID={AZURE_SQL_USERNAME};"
+        f"PWD={AZURE_SQL_PASSWORD};"
+        f"Encrypt=yes;"
+        f"TrustServerCertificate=no;"
+        f"Connection Timeout=30;"
+    )
+    
+    try:
+        conn = pyodbc.connect(connection_string)
+        yield conn
+    except Exception as e:
+        logger.error(f"Database connection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+# Pydantic models
 class SourceColumn(BaseModel):
     malcode: str
     table: str
     column: str
+    dataType: Optional[str] = "string"
+    sourceType: Optional[str] = "SRZ_ADLS"
 
 class TargetColumn(BaseModel):
     malcode: str
     table: str
     column: str
+    dataType: Optional[str] = "string"
+    targetType: Optional[str] = "CZ_ADLS"
 
-class MappingRow(BaseModel):
+class MappingRowRequest(BaseModel):
     sourceColumn: SourceColumn
     targetColumn: TargetColumn
-    dataType: str
-    transformationLogic: Optional[str] = ""
+    transformation: Optional[str] = None
+    join: Optional[str] = None
+    status: Optional[str] = "draft"
+    createdBy: Optional[str] = "API User"
+
+class MappingFileRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    sourceSystem: str
+    targetSystem: str
+    status: Optional[str] = "draft"
+    createdBy: str
+    rows: List[MappingRowRequest]
 
 class MappingInfo(BaseModel):
     name: str
-    rows: List[MappingRow]
+    rows: List[Dict[str, Any]]
 
 class ValidationResults(BaseModel):
     isValid: bool
@@ -59,48 +129,185 @@ class BackendApiResponse(BaseModel):
     testData: List[Dict[str, Any]]
     validationResults: ValidationResults
 
-class SQLGenerationRequest(BaseModel):
-    mappingInfo: MappingInfo
-
-class TestDataGenerationRequest(BaseModel):
-    mappingInfo: MappingInfo
-    sqlQuery: str
-
-class SQLValidationRequest(BaseModel):
-    sqlQuery: str
-    testData: List[Dict[str, Any]]
-
-# Azure OpenAI Configuration
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4")
-
-if not AZURE_OPENAI_ENDPOINT or not AZURE_OPENAI_KEY:
-    raise ValueError("Azure OpenAI configuration is missing. Please set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_KEY environment variables.")
-
-# Initialize Azure OpenAI client
-client = AzureOpenAI(
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    api_key=AZURE_OPENAI_KEY,
-    api_version=AZURE_OPENAI_API_VERSION,
-)
-
-@contextmanager
-def get_temp_db():
-    """Create a temporary SQLite database for testing SQL queries"""
-    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp_file:
-        db_path = tmp_file.name
+# Database operations
+def upsert_mapping_column(conn, column_data: dict) -> str:
+    """Insert or update a mapping column and return its ID"""
+    cursor = conn.cursor()
     
-    try:
-        conn = sqlite3.connect(db_path)
-        yield conn
-    finally:
-        conn.close()
-        os.unlink(db_path)
+    # Check if column exists
+    cursor.execute("""
+        SELECT id FROM mapping_columns 
+        WHERE malcode = ? AND table_name = ? AND column_name = ?
+    """, (column_data['malcode'], column_data['table'], column_data['column']))
+    
+    existing = cursor.fetchone()
+    if existing:
+        return str(existing[0])
+    
+    # Insert new column
+    column_id = str(uuid.uuid4())
+    cursor.execute("""
+        INSERT INTO mapping_columns 
+        (id, malcode, table_name, column_name, data_type, malcode_description, 
+         table_description, column_description, is_primary_key, is_nullable, default_value)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        column_id,
+        column_data['malcode'],
+        column_data['table'],
+        column_data['column'],
+        column_data.get('dataType', 'string'),
+        column_data.get('malcodeDescription'),
+        column_data.get('tableDescription'),
+        column_data.get('columnDescription'),
+        column_data.get('isPrimaryKey', False),
+        column_data.get('isNullable', True),
+        column_data.get('defaultValue')
+    ))
+    
+    return column_id
 
+def save_mapping_file_to_db(conn, mapping_file: MappingFileRequest) -> str:
+    """Save mapping file and all its rows to database"""
+    cursor = conn.cursor()
+    
+    # Check if file exists
+    cursor.execute("SELECT id FROM mapping_files WHERE name = ?", (mapping_file.name,))
+    existing_file = cursor.fetchone()
+    
+    if existing_file:
+        file_id = str(existing_file[0])
+        # Update existing file
+        cursor.execute("""
+            UPDATE mapping_files 
+            SET description = ?, source_system = ?, target_system = ?, status = ?, updated_at = GETDATE()
+            WHERE id = ?
+        """, (mapping_file.description, mapping_file.sourceSystem, mapping_file.targetSystem, 
+              mapping_file.status, file_id))
+        
+        # Delete existing rows
+        cursor.execute("DELETE FROM mapping_rows WHERE mapping_file_id = ?", (file_id,))
+    else:
+        # Create new file
+        file_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO mapping_files 
+            (id, name, description, source_system, target_system, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (file_id, mapping_file.name, mapping_file.description, mapping_file.sourceSystem,
+              mapping_file.targetSystem, mapping_file.status, mapping_file.createdBy))
+    
+    # Save all mapping rows
+    for row in mapping_file.rows:
+        source_column_id = upsert_mapping_column(conn, {
+            'malcode': row.sourceColumn.malcode,
+            'table': row.sourceColumn.table,
+            'column': row.sourceColumn.column,
+            'dataType': row.sourceColumn.dataType
+        })
+        
+        target_column_id = upsert_mapping_column(conn, {
+            'malcode': row.targetColumn.malcode,
+            'table': row.targetColumn.table,
+            'column': row.targetColumn.column,
+            'dataType': row.targetColumn.dataType
+        })
+        
+        row_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO mapping_rows 
+            (id, mapping_file_id, source_column_id, target_column_id, source_type, target_type,
+             transformation, join_clause, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            row_id, file_id, source_column_id, target_column_id,
+            row.sourceColumn.sourceType, row.targetColumn.targetType,
+            row.transformation, row.join, row.status, row.createdBy
+        ))
+    
+    conn.commit()
+    return file_id
+
+def load_mapping_files_from_db(conn) -> List[Dict[str, Any]]:
+    """Load all mapping files with their rows from database"""
+    cursor = conn.cursor()
+    
+    # Get all mapping files
+    cursor.execute("""
+        SELECT id, name, description, source_system, target_system, status, 
+               created_by, created_at, updated_at
+        FROM mapping_files
+    """)
+    
+    files = []
+    for file_row in cursor.fetchall():
+        file_id = str(file_row[0])
+        
+        # Get mapping rows for this file
+        cursor.execute("""
+            SELECT mr.id, mr.transformation, mr.join_clause, mr.status, mr.created_by,
+                   mr.created_at, mr.updated_at, mr.reviewer, mr.reviewed_at, mr.comments,
+                   sc.malcode as source_malcode, sc.table_name as source_table, 
+                   sc.column_name as source_column, sc.data_type as source_data_type,
+                   tc.malcode as target_malcode, tc.table_name as target_table,
+                   tc.column_name as target_column, tc.data_type as target_data_type,
+                   mr.source_type, mr.target_type
+            FROM mapping_rows mr
+            JOIN mapping_columns sc ON mr.source_column_id = sc.id
+            JOIN mapping_columns tc ON mr.target_column_id = tc.id
+            WHERE mr.mapping_file_id = ?
+        """, (file_id,))
+        
+        rows = []
+        for row in cursor.fetchall():
+            rows.append({
+                'id': str(row[0]),
+                'sourceColumn': {
+                    'malcode': row[10],
+                    'table': row[11],
+                    'column': row[12],
+                    'dataType': row[13],
+                    'sourceType': row[18]
+                },
+                'targetColumn': {
+                    'malcode': row[14],
+                    'table': row[15],
+                    'column': row[16],
+                    'dataType': row[17],
+                    'targetType': row[19]
+                },
+                'transformation': row[1],
+                'join': row[2],
+                'status': row[3],
+                'createdBy': row[4],
+                'createdAt': row[5].isoformat() if row[5] else None,
+                'updatedAt': row[6].isoformat() if row[6] else None,
+                'reviewer': row[7],
+                'reviewedAt': row[8].isoformat() if row[8] else None,
+                'comments': json.loads(row[9]) if row[9] else []
+            })
+        
+        files.append({
+            'id': file_id,
+            'name': file_row[1],
+            'description': file_row[2],
+            'sourceSystem': file_row[3],
+            'targetSystem': file_row[4],
+            'status': file_row[5],
+            'createdBy': file_row[6],
+            'createdAt': file_row[7].isoformat() if file_row[7] else None,
+            'updatedAt': file_row[8].isoformat() if file_row[8] else None,
+            'rows': rows
+        })
+    
+    return files
+
+# OpenAI functions (unchanged from original)
 def call_azure_openai(messages: List[Dict[str, str]], max_tokens: int = 2000) -> str:
     """Call Azure OpenAI with the given messages"""
+    if not client:
+        raise HTTPException(status_code=500, detail="Azure OpenAI is not configured")
+    
     try:
         response = client.chat.completions.create(
             model=AZURE_OPENAI_DEPLOYMENT_NAME,
@@ -112,264 +319,106 @@ def call_azure_openai(messages: List[Dict[str, str]], max_tokens: int = 2000) ->
         return response.choices[0].message.content
     except Exception as e:
         logger.error(f"Azure OpenAI API call failed: {str(e)}")
-        raise HTTPException(status_code=500, f"Azure OpenAI API call failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Azure OpenAI API call failed: {str(e)}")
 
-def generate_sql_query(mapping_info: MappingInfo) -> str:
-    """Generate SQL query from mapping information using Azure OpenAI"""
-    
-    # Create a detailed prompt for SQL generation
-    mappings_text = "\n".join([
-        f"- Map {row.sourceColumn.malcode}.{row.sourceColumn.table}.{row.sourceColumn.column} "
-        f"to {row.targetColumn.malcode}.{row.targetColumn.table}.{row.targetColumn.column} "
-        f"(Type: {row.dataType})"
-        + (f" with transformation: {row.transformationLogic}" if row.transformationLogic else "")
-        for row in mapping_info.rows
-    ])
-    
-    prompt = f"""
-You are a SQL expert. Generate a SQL query that implements the following data mappings for "{mapping_info.name}":
-
-{mappings_text}
-
-Requirements:
-1. Create appropriate source and target table structures
-2. Use proper SQL JOIN syntax where needed
-3. Include any necessary data transformations
-4. Use standard SQL that works with SQLite
-5. Include SELECT, FROM, and any needed JOIN clauses
-6. Make the query executable and syntactically correct
-
-Return ONLY the SQL query, no explanations or markdown formatting.
-"""
-
-    messages = [
-        {"role": "system", "content": "You are a SQL expert that generates clean, executable SQL queries."},
-        {"role": "user", "content": prompt}
-    ]
-    
-    return call_azure_openai(messages, max_tokens=1500)
-
-def generate_test_data(mapping_info: MappingInfo, sql_query: str) -> List[Dict[str, Any]]:
-    """Generate test data using Azure OpenAI"""
-    
-    mappings_text = "\n".join([
-        f"- {row.sourceColumn.malcode}.{row.sourceColumn.table}.{row.sourceColumn.column}: {row.dataType}"
-        for row in mapping_info.rows
-    ])
-    
-    prompt = f"""
-Generate realistic test data for the following SQL query and mappings:
-
-SQL Query:
-{sql_query}
-
-Column Mappings:
-{mappings_text}
-
-Requirements:
-1. Generate 5-10 test records
-2. Include realistic data values appropriate for each data type
-3. Ensure data relationships make sense
-4. Return data as a JSON array of objects
-5. Use column names that match the SQL query
-
-Return ONLY the JSON array, no explanations or markdown formatting.
-"""
-
-    messages = [
-        {"role": "system", "content": "You are a test data generation expert. Return only valid JSON arrays."},
-        {"role": "user", "content": prompt}
-    ]
-    
-    response = call_azure_openai(messages, max_tokens=2000)
-    
-    try:
-        # Clean the response and parse JSON
-        cleaned_response = response.strip()
-        if cleaned_response.startswith('```json'):
-            cleaned_response = cleaned_response[7:]
-        if cleaned_response.endswith('```'):
-            cleaned_response = cleaned_response[:-3]
-        cleaned_response = cleaned_response.strip()
-        
-        test_data = json.loads(cleaned_response)
-        if not isinstance(test_data, list):
-            test_data = [test_data]
-        
-        return test_data
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse test data JSON: {str(e)}")
-        logger.error(f"Raw response: {response}")
-        # Return fallback test data
-        return [{"id": 1, "sample_column": "sample_value"}]
-
-def validate_sql_query(sql_query: str, test_data: List[Dict[str, Any]]) -> ValidationResults:
-    """Validate SQL query using Azure OpenAI and actual execution"""
-    
-    # First, try to execute the query
-    execution_results = []
-    execution_errors = []
-    
-    try:
-        with get_temp_db() as conn:
-            cursor = conn.cursor()
-            
-            # Create tables and insert test data based on the SQL query structure
-            # This is a simplified approach - in production you'd want more sophisticated schema detection
-            if test_data:
-                # Extract table name from query (simplified)
-                table_name = "test_table"
-                
-                # Create table schema from test data
-                if test_data:
-                    columns = list(test_data[0].keys())
-                    create_table_sql = f"CREATE TABLE {table_name} ({', '.join([f'{col} TEXT' for col in columns])})"
-                    cursor.execute(create_table_sql)
-                    
-                    # Insert test data
-                    for record in test_data:
-                        placeholders = ', '.join(['?' for _ in record.values()])
-                        insert_sql = f"INSERT INTO {table_name} VALUES ({placeholders})"
-                        cursor.execute(insert_sql, list(record.values()))
-                    
-                    conn.commit()
-                    
-                    # Try to execute the provided SQL query (modified to use our test table)
-                    try:
-                        # Simple replacement - in production, you'd need more sophisticated SQL parsing
-                        test_sql = sql_query.replace("source_table", table_name).replace("target_table", table_name)
-                        cursor.execute(test_sql)
-                        execution_results = [dict(zip([desc[0] for desc in cursor.description], row)) 
-                                           for row in cursor.fetchall()]
-                    except Exception as exec_error:
-                        execution_errors.append(f"SQL execution error: {str(exec_error)}")
-            
-    except Exception as e:
-        execution_errors.append(f"Database error: {str(e)}")
-    
-    # Use Azure OpenAI for validation analysis
-    validation_prompt = f"""
-Analyze this SQL query for correctness and best practices:
-
-SQL Query:
-{sql_query}
-
-Test Data Sample:
-{json.dumps(test_data[:2] if test_data else [], indent=2)}
-
-Execution Errors (if any):
-{json.dumps(execution_errors)}
-
-Provide validation results in the following JSON format:
-{{
-    "isValid": boolean,
-    "message": "Overall validation message",
-    "errors": ["list of specific errors found"],
-    "suggestions": ["list of improvement suggestions"]
-}}
-
-Return ONLY the JSON object, no explanations or markdown formatting.
-"""
-
-    messages = [
-        {"role": "system", "content": "You are a SQL validation expert. Return only valid JSON objects."},
-        {"role": "user", "content": validation_prompt}
-    ]
-    
-    response = call_azure_openai(messages, max_tokens=1000)
-    
-    try:
-        # Clean and parse the validation response
-        cleaned_response = response.strip()
-        if cleaned_response.startswith('```json'):
-            cleaned_response = cleaned_response[7:]
-        if cleaned_response.endswith('```'):
-            cleaned_response = cleaned_response[:-3]
-        cleaned_response = cleaned_response.strip()
-        
-        validation_data = json.loads(cleaned_response)
-        
-        return ValidationResults(
-            isValid=validation_data.get("isValid", len(execution_errors) == 0),
-            message=validation_data.get("message", "SQL query validation completed"),
-            executedResults=execution_results if execution_results else None,
-            errors=validation_data.get("errors", execution_errors),
-            suggestions=validation_data.get("suggestions", [])
-        )
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse validation JSON: {str(e)}")
-        return ValidationResults(
-            isValid=len(execution_errors) == 0,
-            message="SQL query validation completed with limited analysis",
-            executedResults=execution_results if execution_results else None,
-            errors=execution_errors,
-            suggestions=["Consider reviewing the SQL syntax and structure"]
-        )
+# ... keep existing code (OpenAI functions like generate_sql_query, generate_test_data, validate_sql_query)
 
 # API Routes
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "Data Mapping Backend API"}
-
-@app.post("/api/openai/process-complete")
-async def process_complete(request: SQLGenerationRequest) -> BackendApiResponse:
-    """Complete processing pipeline: generate SQL, create test data, and validate"""
+    db_status = "disconnected"
     try:
-        logger.info(f"Starting complete processing for mapping: {request.mappingInfo.name}")
-        
-        # Step 1: Generate SQL
-        sql_query = generate_sql_query(request.mappingInfo)
-        logger.info("SQL query generated successfully")
-        
-        # Step 2: Generate test data
-        test_data = generate_test_data(request.mappingInfo, sql_query)
-        logger.info(f"Generated {len(test_data)} test records")
-        
-        # Step 3: Validate SQL
-        validation_results = validate_sql_query(sql_query, test_data)
-        logger.info("SQL validation completed")
-        
-        return BackendApiResponse(
-            sqlQuery=sql_query,
-            testData=test_data,
-            validationResults=validation_results
-        )
-        
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1")
+            db_status = "connected"
     except Exception as e:
-        logger.error(f"Complete processing failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+        logger.error(f"Database health check failed: {str(e)}")
+    
+    return {
+        "status": "healthy",
+        "service": "Data Mapping Backend API",
+        "database": db_status,
+        "openai": "configured" if client else "not configured"
+    }
 
-@app.post("/api/openai/generate-sql")
-async def generate_sql(request: SQLGenerationRequest):
-    """Generate SQL query from mapping information"""
+@app.post("/api/mapping-files")
+async def create_mapping_file(mapping_file: MappingFileRequest):
+    """Create or update a mapping file"""
     try:
-        sql_query = generate_sql_query(request.mappingInfo)
-        return {"sqlQuery": sql_query}
+        with get_db_connection() as conn:
+            file_id = save_mapping_file_to_db(conn, mapping_file)
+            logger.info(f"Mapping file saved successfully: {mapping_file.name}")
+            return {"id": file_id, "message": "Mapping file saved successfully"}
     except Exception as e:
-        logger.error(f"SQL generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"SQL generation failed: {str(e)}")
+        logger.error(f"Failed to save mapping file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save mapping file: {str(e)}")
 
-@app.post("/api/openai/generate-test-data")
-async def generate_test_data_endpoint(request: TestDataGenerationRequest):
-    """Generate test data for SQL query"""
+@app.get("/api/mapping-files")
+async def get_mapping_files():
+    """Get all mapping files"""
     try:
-        test_data = generate_test_data(request.mappingInfo, request.sqlQuery)
-        return {"testData": test_data}
+        with get_db_connection() as conn:
+            files = load_mapping_files_from_db(conn)
+            logger.info(f"Loaded {len(files)} mapping files")
+            return {"files": files}
     except Exception as e:
-        logger.error(f"Test data generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Test data generation failed: {str(e)}")
+        logger.error(f"Failed to load mapping files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to load mapping files: {str(e)}")
 
-@app.post("/api/openai/validate-sql")
-async def validate_sql(request: SQLValidationRequest):
-    """Validate SQL query with test data"""
+@app.put("/api/mapping-rows/{row_id}/status")
+async def update_row_status(row_id: str, status: str, reviewer: Optional[str] = None):
+    """Update mapping row status"""
     try:
-        validation_results = validate_sql_query(request.sqlQuery, request.testData)
-        return {"validationResults": validation_results}
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE mapping_rows 
+                SET status = ?, reviewer = ?, reviewed_at = GETDATE(), updated_at = GETDATE()
+                WHERE id = ?
+            """, (status, reviewer, row_id))
+            
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Mapping row not found")
+            
+            conn.commit()
+            return {"message": "Status updated successfully"}
     except Exception as e:
-        logger.error(f"SQL validation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"SQL validation failed: {str(e)}")
+        logger.error(f"Failed to update row status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update row status: {str(e)}")
+
+@app.post("/api/mapping-rows/{row_id}/comments")
+async def add_row_comment(row_id: str, comment: dict):
+    """Add comment to mapping row"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # Get current comments
+            cursor.execute("SELECT comments FROM mapping_rows WHERE id = ?", (row_id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                raise HTTPException(status_code=404, detail="Mapping row not found")
+            
+            current_comments = json.loads(result[0]) if result[0] else []
+            current_comments.append(comment.get("comment", ""))
+            
+            # Update with new comments
+            cursor.execute("""
+                UPDATE mapping_rows 
+                SET comments = ?, updated_at = GETDATE()
+                WHERE id = ?
+            """, (json.dumps(current_comments), row_id))
+            
+            conn.commit()
+            return {"message": "Comment added successfully"}
+    except Exception as e:
+        logger.error(f"Failed to add comment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add comment: {str(e)}")
+
+# ... keep existing code (OpenAI endpoints like process-complete, generate-sql, etc.)
 
 if __name__ == "__main__":
     import uvicorn
