@@ -1,7 +1,7 @@
 
 import { MappingRow } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useSupabaseMappingContext } from '@/components/SupabaseMappingProvider';
+import { useAzureSqlMappingContext } from '@/components/AzureSqlMappingProvider';
 
 export const useMappingSearch = () => {
   const { 
@@ -11,7 +11,7 @@ export const useMappingSearch = () => {
     searchLoading, 
     setSearchLoading,
     statusFilter 
-  } = useSupabaseMappingContext();
+  } = useAzureSqlMappingContext();
   const { toast } = useToast();
 
   const handleSearch = (query: string, filters: Record<string, string>) => {

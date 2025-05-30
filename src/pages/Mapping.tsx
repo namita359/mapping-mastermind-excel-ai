@@ -2,13 +2,30 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAzureSqlMappingContext } from "@/components/AzureSqlMappingProvider";
+import { useMappingSearch } from "@/hooks/useMappingSearch";
 import MappingContent from "@/components/MappingContent";
 import TestDataGenerator from "@/components/TestDataGenerator";
 import { Loader2 } from "lucide-react";
 
 const Mapping = () => {
   const [activeTab, setActiveTab] = useState("mapping");
-  const { mappingFile, isLoading } = useAzureSqlMappingContext();
+  const [showAIAssistant, setShowAIAssistant] = useState(false);
+  
+  const { 
+    mappingFile, 
+    isLoading, 
+    selectedRow,
+    handleRowSelect,
+    handleStatusChange,
+    handleCommentAdd,
+    getStatusCounts
+  } = useAzureSqlMappingContext();
+  
+  const { getFilteredRows } = useMappingSearch();
+
+  const handleAIAssistantClose = () => {
+    setShowAIAssistant(false);
+  };
 
   if (isLoading) {
     return (
@@ -21,6 +38,9 @@ const Mapping = () => {
     );
   }
 
+  const rowsToDisplay = getFilteredRows();
+  const counts = getStatusCounts();
+
   return (
     <div className="min-h-screen bg-background">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -29,7 +49,17 @@ const Mapping = () => {
           <TabsTrigger value="testdata">Test Data Generation</TabsTrigger>
         </TabsList>
         <TabsContent value="mapping" className="space-y-4">
-          <MappingContent />
+          <MappingContent
+            mappingFile={mappingFile}
+            rowsToDisplay={rowsToDisplay}
+            counts={counts}
+            selectedRow={selectedRow}
+            showAIAssistant={showAIAssistant}
+            onRowSelect={handleRowSelect}
+            onStatusChange={handleStatusChange}
+            onCommentAdd={handleCommentAdd}
+            onAIAssistantClose={handleAIAssistantClose}
+          />
         </TabsContent>
         <TabsContent value="testdata" className="space-y-4">
           <TestDataGenerator mappingFile={mappingFile} />
