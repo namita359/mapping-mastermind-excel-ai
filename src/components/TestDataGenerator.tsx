@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { MappingFile } from "@/lib/types";
@@ -7,6 +8,7 @@ import TestDataStats from "./test-data/TestDataStats";
 import SQLQueryDisplay from "./test-data/SQLQueryDisplay";
 import TestDataTabs from "./test-data/TestDataTabs";
 import EmptyState from "./test-data/EmptyState";
+import TargetSelectionFilters from "./test-data/TargetSelectionFilters";
 import OpenAIKeyModal from "./OpenAIKeyModal";
 
 interface TestRecord {
@@ -25,7 +27,22 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
+  
+  // Filter states
+  const [selectedMalcode, setSelectedMalcode] = useState<string | null>(null);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  
   const { toast } = useToast();
+
+  // Filter mapping file based on selections
+  const filteredMappingFile = {
+    ...mappingFile,
+    rows: mappingFile.rows.filter(row => {
+      if (selectedMalcode && row.targetColumn.malcode !== selectedMalcode) return false;
+      if (selectedTable && row.targetColumn.table !== selectedTable) return false;
+      return true;
+    })
+  };
 
   const checkOpenAIKey = () => {
     const apiKey = getOpenAIKey();
@@ -39,6 +56,15 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const generateCompleteAnalysis = async () => {
     if (!checkOpenAIKey()) return;
     
+    if (filteredMappingFile.rows.length === 0) {
+      toast({
+        title: "No Mappings Selected",
+        description: "Please select target malcode and/or table to generate SQL for specific mappings.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsGenerating(true);
     setIsGeneratingTestData(true);
     
@@ -48,17 +74,22 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         throw new Error("Failed to create OpenAI service");
       }
 
-      console.log("Starting complete OpenAI analysis pipeline for:", mappingFile.name);
+      console.log("Starting complete OpenAI analysis pipeline for filtered mappings:", {
+        originalCount: mappingFile.rows.length,
+        filteredCount: filteredMappingFile.rows.length,
+        selectedMalcode,
+        selectedTable
+      });
       
       toast({
         title: "AI Analysis Started",
-        description: "OpenAI is generating SQL, test data, and validation results...",
+        description: `OpenAI is generating SQL, test data, and validation results for ${filteredMappingFile.rows.length} filtered mappings...`,
       });
 
-      // Convert mapping file to the format expected by OpenAI service
+      // Convert filtered mapping file to the format expected by OpenAI service
       const mappingInfo = {
-        name: mappingFile.name,
-        rows: mappingFile.rows.map(row => ({
+        name: `${filteredMappingFile.name}${selectedMalcode ? ` (${selectedMalcode})` : ''}${selectedTable ? ` - ${selectedTable}` : ''}`,
+        rows: filteredMappingFile.rows.map(row => ({
           sourceColumn: {
             malcode: row.sourceColumn.malcode,
             table: row.sourceColumn.table,
@@ -85,7 +116,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       
       toast({
         title: "AI Analysis Complete",
-        description: `Generated SQL query, ${result.testData.length} test scenarios, and validation results`,
+        description: `Generated SQL query, ${result.testData.length} test scenarios, and validation results for filtered mappings`,
       });
       
     } catch (error) {
@@ -119,7 +150,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `openai_test_data_${mappingFile.name.replace(/\s+/g, '_')}.json`;
+    link.download = `openai_test_data_${filteredMappingFile.name.replace(/\s+/g, '_')}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -144,8 +175,16 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
 
   return (
     <div className="space-y-6">
+      <TargetSelectionFilters
+        mappingFile={mappingFile}
+        selectedMalcode={selectedMalcode}
+        selectedTable={selectedTable}
+        onMalcodeChange={setSelectedMalcode}
+        onTableChange={setSelectedTable}
+      />
+
       <GenerationControls
-        mappingFileName={mappingFile.name}
+        mappingFileName={filteredMappingFile.name}
         isGenerating={isGenerating}
         isGeneratingTestData={isGeneratingTestData}
         hasGenerated={hasGenerated}
@@ -156,7 +195,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       />
 
       <TestDataStats 
-        mappingFile={mappingFile} 
+        mappingFile={filteredMappingFile} 
         generatedDataCount={generatedData.length} 
       />
 
@@ -166,7 +205,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         <TestDataTabs
           generatedData={generatedData}
           sqlQuery={sqlQuery}
-          mappingFile={mappingFile}
+          mappingFile={filteredMappingFile}
           validationResult={validationResult}
           onSQLChange={setSqlQuery}
           onDataChange={setGeneratedData}
