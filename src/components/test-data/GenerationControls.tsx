@@ -33,10 +33,10 @@ const GenerationControls = ({
           <div>
             <CardTitle className="flex items-center gap-2">
               <Database className="h-5 w-5" />
-              OpenAI Complete Analysis Pipeline
+              Backend API Complete Analysis Pipeline
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              Generate SQL → Create test data → Validate query with OpenAI in one complete process
+              Generate SQL → Create test data → Validate query using your backend API in one complete process
             </p>
           </div>
           <div className="flex gap-2">
@@ -56,7 +56,7 @@ const GenerationControls = ({
               ) : (
                 <Sparkles className="h-4 w-4 mr-2" />
               )}
-              {isProcessing ? 'Processing with AI...' : 'Run Complete AI Analysis'}
+              {isProcessing ? 'Processing via Backend...' : 'Run Complete Backend Analysis'}
             </Button>
           </div>
         </div>

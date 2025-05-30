@@ -2,14 +2,14 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { MappingFile } from "@/lib/types";
-import { createOpenAIService, getOpenAIKey } from "@/lib/openaiService";
+import { createBackendApiService, getBackendApiUrl } from "@/lib/backendApiService";
 import GenerationControls from "./test-data/GenerationControls";
 import TestDataStats from "./test-data/TestDataStats";
 import SQLQueryDisplay from "./test-data/SQLQueryDisplay";
 import TestDataTabs from "./test-data/TestDataTabs";
 import EmptyState from "./test-data/EmptyState";
 import TargetSelectionFilters from "./test-data/TargetSelectionFilters";
-import OpenAIKeyModal from "./OpenAIKeyModal";
+import BackendApiConfigModal from "./BackendApiConfigModal";
 
 interface TestRecord {
   [key: string]: any;
@@ -25,7 +25,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [sqlQuery, setSqlQuery] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
-  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   
   // Filter states
@@ -44,17 +44,17 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     })
   };
 
-  const checkOpenAIKey = () => {
-    const apiKey = getOpenAIKey();
-    if (!apiKey) {
-      setShowKeyModal(true);
+  const checkBackendApiConfig = () => {
+    const apiUrl = getBackendApiUrl();
+    if (!apiUrl || apiUrl === 'http://localhost:3000') {
+      setShowConfigModal(true);
       return false;
     }
     return true;
   };
 
   const generateCompleteAnalysis = async () => {
-    if (!checkOpenAIKey()) return;
+    if (!checkBackendApiConfig()) return;
     
     if (filteredMappingFile.rows.length === 0) {
       toast({
@@ -69,12 +69,9 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     setIsGeneratingTestData(true);
     
     try {
-      const openaiService = createOpenAIService();
-      if (!openaiService) {
-        throw new Error("Failed to create OpenAI service");
-      }
+      const backendApiService = createBackendApiService();
 
-      console.log("Starting complete OpenAI analysis pipeline for filtered mappings:", {
+      console.log("Starting backend API analysis pipeline for filtered mappings:", {
         originalCount: mappingFile.rows.length,
         filteredCount: filteredMappingFile.rows.length,
         selectedMalcode,
@@ -82,11 +79,11 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       });
       
       toast({
-        title: "AI Analysis Started",
-        description: `OpenAI is generating SQL, test data, and validation results for ${filteredMappingFile.rows.length} filtered mappings...`,
+        title: "Backend API Analysis Started",
+        description: `Your backend is processing SQL generation, test data, and validation for ${filteredMappingFile.rows.length} filtered mappings...`,
       });
 
-      // Convert filtered mapping file to the format expected by OpenAI service
+      // Convert filtered mapping file to the format expected by backend API
       const mappingInfo = {
         name: `${filteredMappingFile.name}${selectedMalcode ? ` (${selectedMalcode})` : ''}${selectedTable ? ` - ${selectedTable}` : ''}`,
         rows: filteredMappingFile.rows.map(row => ({
@@ -105,8 +102,8 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         }))
       };
 
-      // Run the complete OpenAI pipeline
-      const result = await openaiService.processComplete(mappingInfo);
+      // Call the backend API for complete processing
+      const result = await backendApiService.processComplete(mappingInfo);
       
       // Set all results
       setSqlQuery(result.sqlQuery);
@@ -115,19 +112,17 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       setHasGenerated(true);
       
       toast({
-        title: "AI Analysis Complete",
+        title: "Backend API Analysis Complete",
         description: `Generated SQL query, ${result.testData.length} test scenarios, and validation results for filtered mappings`,
       });
       
     } catch (error) {
-      console.error("Error in OpenAI analysis:", error);
+      console.error("Error in backend API analysis:", error);
       
-      let errorMessage = "Failed to complete AI analysis";
+      let errorMessage = "Failed to complete backend API analysis";
       if (error instanceof Error) {
-        if (error.message.includes('401')) {
-          errorMessage = "Invalid OpenAI API key. Please check your key and try again.";
-        } else if (error.message.includes('429')) {
-          errorMessage = "OpenAI rate limit exceeded. Please try again later.";
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Cannot connect to backend API. Please check your backend API URL and ensure the service is running.";
         } else {
           errorMessage = error.message;
         }
@@ -150,7 +145,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `openai_test_data_${filteredMappingFile.name.replace(/\s+/g, '_')}.json`;
+    link.download = `backend_api_test_data_${filteredMappingFile.name.replace(/\s+/g, '_')}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -158,14 +153,14 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     
     toast({
       title: "Download started",
-      description: "OpenAI generated test data file download initiated",
+      description: "Backend API generated test data file download initiated",
     });
   };
 
-  const handleKeySet = () => {
+  const handleConfigSet = () => {
     toast({
-      title: "API Key Saved",
-      description: "OpenAI API key has been saved. You can now generate analysis.",
+      title: "Backend API Configured",
+      description: "Backend API URL has been saved. You can now generate analysis.",
     });
   };
 
@@ -212,10 +207,10 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         />
       )}
 
-      <OpenAIKeyModal
-        isOpen={showKeyModal}
-        onClose={() => setShowKeyModal(false)}
-        onKeySet={handleKeySet}
+      <BackendApiConfigModal
+        isOpen={showConfigModal}
+        onClose={() => setShowConfigModal(false)}
+        onConfigSet={handleConfigSet}
       />
     </div>
   );
