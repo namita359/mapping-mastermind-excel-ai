@@ -24,7 +24,6 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [generatedData, setGeneratedData] = useState<TestRecord[]>([]);
   const [sqlQuery, setSqlQuery] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   
@@ -66,7 +65,6 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     }
     
     setIsGenerating(true);
-    setIsGeneratingTestData(true);
     
     try {
       const backendApiService = createBackendApiService();
@@ -75,12 +73,13 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         originalCount: mappingFile.rows.length,
         filteredCount: filteredMappingFile.rows.length,
         selectedMalcode,
-        selectedTable
+        selectedTable,
+        backendUrl: getBackendApiUrl()
       });
       
       toast({
         title: "Backend API Analysis Started",
-        description: `Your backend is processing SQL generation, test data, and validation for ${filteredMappingFile.rows.length} filtered mappings...`,
+        description: `Processing SQL generation, test data creation, and validation for ${filteredMappingFile.rows.length} filtered mappings...`,
       });
 
       // Convert filtered mapping file to the format expected by backend API
@@ -102,8 +101,12 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         }))
       };
 
+      console.log("Sending mapping info to backend:", mappingInfo);
+
       // Call the backend API for complete processing
       const result = await backendApiService.processComplete(mappingInfo);
+      
+      console.log("Backend API response received:", result);
       
       // Set all results
       setSqlQuery(result.sqlQuery);
@@ -113,54 +116,83 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       
       toast({
         title: "Backend API Analysis Complete",
-        description: `Generated SQL query, ${result.testData.length} test scenarios, and validation results for filtered mappings`,
+        description: `Successfully generated SQL query, ${result.testData.length} test scenarios, and validation results`,
       });
       
     } catch (error) {
       console.error("Error in backend API analysis:", error);
       
       let errorMessage = "Failed to complete backend API analysis";
+      let errorDescription = "Please check your backend API configuration and try again.";
+      
       if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch')) {
-          errorMessage = "Cannot connect to backend API. Please check your backend API URL and ensure the service is running.";
+        if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+          errorMessage = "Backend API Connection Failed";
+          errorDescription = "Cannot connect to your backend API. Please verify the URL is correct and the service is running.";
+        } else if (error.message.includes('500')) {
+          errorMessage = "Backend API Server Error";
+          errorDescription = "Your backend API returned a server error. Please check your backend logs.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "Backend API Endpoint Not Found";
+          errorDescription = "The backend API endpoint was not found. Please verify your backend API has the required endpoints.";
         } else {
-          errorMessage = error.message;
+          errorDescription = error.message;
         }
       }
       
       toast({
-        title: "Analysis Failed",
-        description: errorMessage,
+        title: errorMessage,
+        description: errorDescription,
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
-      setIsGeneratingTestData(false);
     }
   };
 
   const downloadTestData = () => {
-    const dataStr = JSON.stringify(generatedData, null, 2);
+    if (generatedData.length === 0) {
+      toast({
+        title: "No Data to Download",
+        description: "Please generate test data first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const downloadData = {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        mappingFile: filteredMappingFile.name,
+        recordCount: generatedData.length,
+        backendApiUrl: getBackendApiUrl()
+      },
+      sqlQuery,
+      testData: generatedData,
+      validationResults: validationResult
+    };
+
+    const dataStr = JSON.stringify(downloadData, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `backend_api_test_data_${filteredMappingFile.name.replace(/\s+/g, '_')}.json`;
+    link.download = `backend_api_results_${filteredMappingFile.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     
     toast({
-      title: "Download started",
-      description: "Backend API generated test data file download initiated",
+      title: "Download Complete",
+      description: "Backend API analysis results downloaded successfully",
     });
   };
 
   const handleConfigSet = () => {
     toast({
       title: "Backend API Configured",
-      description: "Backend API URL has been saved. You can now generate analysis.",
+      description: "Backend API URL has been saved. You can now run the complete analysis.",
     });
   };
 
@@ -181,7 +213,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       <GenerationControls
         mappingFileName={filteredMappingFile.name}
         isGenerating={isGenerating}
-        isGeneratingTestData={isGeneratingTestData}
+        isGeneratingTestData={false}
         hasGenerated={hasGenerated}
         hasGeneratedData={generatedData.length > 0}
         onGenerateSQL={generateCompleteAnalysis}
