@@ -1,31 +1,16 @@
-
-import sql from 'mssql';
 import { MappingFile, MappingRow, MappingColumn, MappingStatus } from './types';
 
-// Azure SQL Database configuration
-const azureSqlConfig: sql.config = {
-  server: process.env.AZURE_SQL_SERVER || 'your-server.database.windows.net',
-  database: process.env.AZURE_SQL_DATABASE || 'your-database',
-  user: process.env.AZURE_SQL_USER || 'your-username',
-  password: process.env.AZURE_SQL_PASSWORD || 'your-password',
-  options: {
-    encrypt: true, // Use encryption
-    trustServerCertificate: false // Don't trust self-signed certificates
-  }
-};
+// Simulated Azure SQL Database service for browser environment
+// This replaces the actual mssql integration which cannot run in browsers
 
-let pool: sql.ConnectionPool | null = null;
+// Local storage keys
+const STORAGE_KEYS = {
+  MAPPING_FILES: 'azure_sql_mapping_files',
+  MAPPING_COLUMNS: 'azure_sql_mapping_columns',
+  MAPPING_ROWS: 'azure_sql_mapping_rows'
+} as const;
 
-// Get database connection pool
-const getPool = async (): Promise<sql.ConnectionPool> => {
-  if (!pool) {
-    pool = new sql.ConnectionPool(azureSqlConfig);
-    await pool.connect();
-  }
-  return pool;
-};
-
-// Database interfaces
+// Database interfaces (keeping the same structure for compatibility)
 export interface DatabaseMappingFile {
   id: string;
   name: string;
@@ -71,7 +56,29 @@ export interface DatabaseMappingRow {
   comments?: string[];
 }
 
-// Convert database types to app types
+// Utility functions for local storage
+const getFromStorage = <T>(key: string): T[] => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveToStorage = <T>(key: string, data: T[]): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error('Failed to save to localStorage:', error);
+  }
+};
+
+const generateId = (): string => {
+  return crypto.randomUUID();
+};
+
+// Convert database types to app types (keeping existing functions)
 export const convertDbMappingFile = (
   dbFile: DatabaseMappingFile,
   rows: MappingRow[]
@@ -129,72 +136,63 @@ export const convertDbMappingRow = (
   comments: dbRow.comments || [],
 });
 
-// Service functions
+// Simulated service functions
 export const createMappingFile = async (mappingFile: MappingFile): Promise<string> => {
-  const pool = await getPool();
-  const request = pool.request();
+  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
+  const id = generateId();
   
-  const result = await request
-    .input('id', sql.UniqueIdentifier, sql.UniqueIdentifier.NULL)
-    .input('name', sql.NVarChar, mappingFile.name)
-    .input('description', sql.NVarChar, mappingFile.description)
-    .input('source_system', sql.NVarChar, mappingFile.sourceSystem)
-    .input('target_system', sql.NVarChar, mappingFile.targetSystem)
-    .input('status', sql.NVarChar, mappingFile.status)
-    .input('created_by', sql.NVarChar, mappingFile.createdBy)
-    .query(`
-      INSERT INTO mapping_files (id, name, description, source_system, target_system, status, created_by)
-      OUTPUT INSERTED.id
-      VALUES (NEWID(), @name, @description, @source_system, @target_system, @status, @created_by)
-    `);
-
-  return result.recordset[0].id;
+  const dbFile: DatabaseMappingFile = {
+    id,
+    name: mappingFile.name,
+    description: mappingFile.description,
+    source_system: mappingFile.sourceSystem,
+    target_system: mappingFile.targetSystem,
+    status: mappingFile.status,
+    created_by: mappingFile.createdBy,
+    created_at: new Date(),
+  };
+  
+  files.push(dbFile);
+  saveToStorage(STORAGE_KEYS.MAPPING_FILES, files);
+  
+  return id;
 };
 
 export const upsertMappingColumn = async (column: MappingColumn): Promise<string> => {
-  const pool = await getPool();
-  const request = pool.request();
-
+  const columns = getFromStorage<DatabaseMappingColumn>(STORAGE_KEYS.MAPPING_COLUMNS);
+  
   // Check if column exists
-  const existingResult = await request
-    .input('malcode', sql.NVarChar, column.malcode)
-    .input('table_name', sql.NVarChar, column.table)
-    .input('column_name', sql.NVarChar, column.column)
-    .query(`
-      SELECT id FROM mapping_columns 
-      WHERE malcode = @malcode AND table_name = @table_name AND column_name = @column_name
-    `);
-
-  if (existingResult.recordset.length > 0) {
-    return existingResult.recordset[0].id;
+  const existing = columns.find(col => 
+    col.malcode === column.malcode && 
+    col.table_name === column.table && 
+    col.column_name === column.column
+  );
+  
+  if (existing) {
+    return existing.id;
   }
-
+  
   // Create new column
-  const newRequest = pool.request();
-  const result = await newRequest
-    .input('malcode', sql.NVarChar, column.malcode)
-    .input('table_name', sql.NVarChar, column.table)
-    .input('column_name', sql.NVarChar, column.column)
-    .input('data_type', sql.NVarChar, column.dataType)
-    .input('malcode_description', sql.NVarChar, column.businessMetadata?.malcodeDescription)
-    .input('table_description', sql.NVarChar, column.businessMetadata?.tableDescription)
-    .input('column_description', sql.NVarChar, column.businessMetadata?.columnDescription)
-    .input('is_primary_key', sql.Bit, column.isPrimaryKey)
-    .input('is_nullable', sql.Bit, column.isNullable)
-    .input('default_value', sql.NVarChar, column.defaultValue)
-    .query(`
-      INSERT INTO mapping_columns (
-        id, malcode, table_name, column_name, data_type, malcode_description,
-        table_description, column_description, is_primary_key, is_nullable, default_value
-      )
-      OUTPUT INSERTED.id
-      VALUES (
-        NEWID(), @malcode, @table_name, @column_name, @data_type, @malcode_description,
-        @table_description, @column_description, @is_primary_key, @is_nullable, @default_value
-      )
-    `);
-
-  return result.recordset[0].id;
+  const id = generateId();
+  const dbColumn: DatabaseMappingColumn = {
+    id,
+    malcode: column.malcode,
+    table_name: column.table,
+    column_name: column.column,
+    data_type: column.dataType,
+    malcode_description: column.businessMetadata?.malcodeDescription,
+    table_description: column.businessMetadata?.tableDescription,
+    column_description: column.businessMetadata?.columnDescription,
+    is_primary_key: column.isPrimaryKey,
+    is_nullable: column.isNullable,
+    default_value: column.defaultValue,
+    created_at: new Date(),
+  };
+  
+  columns.push(dbColumn);
+  saveToStorage(STORAGE_KEYS.MAPPING_COLUMNS, columns);
+  
+  return id;
 };
 
 export const createMappingRow = async (
@@ -203,190 +201,99 @@ export const createMappingRow = async (
 ): Promise<void> => {
   const sourceColumnId = await upsertMappingColumn(row.sourceColumn);
   const targetColumnId = await upsertMappingColumn(row.targetColumn);
-
-  const pool = await getPool();
-  const request = pool.request();
-
-  await request
-    .input('mapping_file_id', sql.UniqueIdentifier, mappingFileId)
-    .input('source_column_id', sql.UniqueIdentifier, sourceColumnId)
-    .input('target_column_id', sql.UniqueIdentifier, targetColumnId)
-    .input('source_type', sql.NVarChar, row.sourceColumn.sourceType)
-    .input('target_type', sql.NVarChar, row.targetColumn.targetType)
-    .input('transformation', sql.NVarChar, row.transformation)
-    .input('join_clause', sql.NVarChar, row.join)
-    .input('status', sql.NVarChar, row.status)
-    .input('created_by', sql.NVarChar, row.createdBy)
-    .input('reviewer', sql.NVarChar, row.reviewer)
-    .input('reviewed_at', sql.DateTime, row.reviewedAt)
-    .input('comments', sql.NVarChar, JSON.stringify(row.comments || []))
-    .query(`
-      INSERT INTO mapping_rows (
-        id, mapping_file_id, source_column_id, target_column_id, source_type, target_type,
-        transformation, join_clause, status, created_by, reviewer, reviewed_at, comments
-      )
-      VALUES (
-        NEWID(), @mapping_file_id, @source_column_id, @target_column_id, @source_type, @target_type,
-        @transformation, @join_clause, @status, @created_by, @reviewer, @reviewed_at, @comments
-      )
-    `);
+  
+  const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+  
+  const dbRow: DatabaseMappingRow = {
+    id: generateId(),
+    mapping_file_id: mappingFileId,
+    source_column_id: sourceColumnId,
+    target_column_id: targetColumnId,
+    source_type: row.sourceColumn.sourceType as 'SRZ_ADLS',
+    target_type: row.targetColumn.targetType as 'CZ_ADLS' | 'SYNAPSE_TABLE',
+    transformation: row.transformation,
+    join_clause: row.join,
+    status: row.status,
+    created_by: row.createdBy,
+    created_at: new Date(),
+    reviewer: row.reviewer,
+    reviewed_at: row.reviewedAt,
+    comments: row.comments || [],
+  };
+  
+  rows.push(dbRow);
+  saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
 };
 
 export const saveMappingFile = async (mappingFile: MappingFile): Promise<void> => {
-  console.log('Saving mapping file to Azure SQL:', mappingFile.name);
+  console.log('Saving mapping file to simulated Azure SQL:', mappingFile.name);
   
-  try {
-    const pool = await getPool();
+  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
+  const existingFileIndex = files.findIndex(f => f.name === mappingFile.name);
+  
+  let mappingFileId: string;
+  
+  if (existingFileIndex >= 0) {
+    // Update existing file
+    mappingFileId = files[existingFileIndex].id;
+    files[existingFileIndex] = {
+      ...files[existingFileIndex],
+      description: mappingFile.description,
+      source_system: mappingFile.sourceSystem,
+      target_system: mappingFile.targetSystem,
+      status: mappingFile.status,
+      updated_at: new Date(),
+    };
     
-    // Check if file exists
-    const existingRequest = pool.request();
-    const existingResult = await existingRequest
-      .input('name', sql.NVarChar, mappingFile.name)
-      .query('SELECT id FROM mapping_files WHERE name = @name');
-
-    let mappingFileId: string;
-
-    if (existingResult.recordset.length > 0) {
-      // Update existing file
-      mappingFileId = existingResult.recordset[0].id;
-      
-      const updateRequest = pool.request();
-      await updateRequest
-        .input('id', sql.UniqueIdentifier, mappingFileId)
-        .input('description', sql.NVarChar, mappingFile.description)
-        .input('source_system', sql.NVarChar, mappingFile.sourceSystem)
-        .input('target_system', sql.NVarChar, mappingFile.targetSystem)
-        .input('status', sql.NVarChar, mappingFile.status)
-        .query(`
-          UPDATE mapping_files 
-          SET description = @description, source_system = @source_system, 
-              target_system = @target_system, status = @status, updated_at = GETDATE()
-          WHERE id = @id
-        `);
-
-      // Delete existing rows
-      const deleteRequest = pool.request();
-      await deleteRequest
-        .input('mapping_file_id', sql.UniqueIdentifier, mappingFileId)
-        .query('DELETE FROM mapping_rows WHERE mapping_file_id = @mapping_file_id');
-    } else {
-      // Create new file
-      mappingFileId = await createMappingFile(mappingFile);
-    }
-
-    // Save all mapping rows
-    for (const row of mappingFile.rows) {
-      await createMappingRow(mappingFileId, row);
-    }
-
-    console.log('Successfully saved mapping file to Azure SQL');
-  } catch (error) {
-    console.error('Error saving mapping file to Azure SQL:', error);
-    throw error;
+    // Delete existing rows for this file
+    const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+    const filteredRows = rows.filter(row => row.mapping_file_id !== mappingFileId);
+    saveToStorage(STORAGE_KEYS.MAPPING_ROWS, filteredRows);
+  } else {
+    // Create new file
+    mappingFileId = await createMappingFile(mappingFile);
   }
+  
+  saveToStorage(STORAGE_KEYS.MAPPING_FILES, files);
+  
+  // Save all mapping rows
+  for (const row of mappingFile.rows) {
+    await createMappingRow(mappingFileId, row);
+  }
+  
+  console.log('Successfully saved mapping file to simulated Azure SQL');
 };
 
 export const loadMappingFiles = async (): Promise<MappingFile[]> => {
-  console.log('Loading mapping files from Azure SQL...');
+  console.log('Loading mapping files from simulated Azure SQL...');
   
-  try {
-    const pool = await getPool();
+  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
+  const allColumns = getFromStorage<DatabaseMappingColumn>(STORAGE_KEYS.MAPPING_COLUMNS);
+  const allRows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+  
+  const mappingFiles: MappingFile[] = [];
+  
+  for (const file of files) {
+    // Get rows for this file
+    const fileRows = allRows.filter(row => row.mapping_file_id === file.id);
     
-    // Get all mapping files
-    const filesRequest = pool.request();
-    const filesResult = await filesRequest.query(`
-      SELECT * FROM mapping_files ORDER BY created_at DESC
-    `);
-
-    const mappingFiles: MappingFile[] = [];
-
-    for (const file of filesResult.recordset) {
-      // Get rows for this file with their columns
-      const rowsRequest = pool.request();
-      const rowsResult = await rowsRequest
-        .input('mapping_file_id', sql.UniqueIdentifier, file.id)
-        .query(`
-          SELECT 
-            r.*,
-            sc.id as source_id, sc.malcode as source_malcode, sc.table_name as source_table,
-            sc.column_name as source_column, sc.data_type as source_data_type,
-            sc.malcode_description as source_malcode_desc, sc.table_description as source_table_desc,
-            sc.column_description as source_column_desc, sc.is_primary_key as source_is_pk,
-            sc.is_nullable as source_is_nullable, sc.default_value as source_default,
-            sc.created_at as source_created_at,
-            tc.id as target_id, tc.malcode as target_malcode, tc.table_name as target_table,
-            tc.column_name as target_column, tc.data_type as target_data_type,
-            tc.malcode_description as target_malcode_desc, tc.table_description as target_table_desc,
-            tc.column_description as target_column_desc, tc.is_primary_key as target_is_pk,
-            tc.is_nullable as target_is_nullable, tc.default_value as target_default,
-            tc.created_at as target_created_at
-          FROM mapping_rows r
-          INNER JOIN mapping_columns sc ON r.source_column_id = sc.id
-          INNER JOIN mapping_columns tc ON r.target_column_id = tc.id
-          WHERE r.mapping_file_id = @mapping_file_id
-        `);
-
-      const mappingRows = rowsResult.recordset.map((row: any) => {
-        const sourceColumn: DatabaseMappingColumn = {
-          id: row.source_id,
-          malcode: row.source_malcode,
-          table_name: row.source_table,
-          column_name: row.source_column,
-          data_type: row.source_data_type,
-          malcode_description: row.source_malcode_desc,
-          table_description: row.source_table_desc,
-          column_description: row.source_column_desc,
-          is_primary_key: row.source_is_pk,
-          is_nullable: row.source_is_nullable,
-          default_value: row.source_default,
-          created_at: row.source_created_at
-        };
-
-        const targetColumn: DatabaseMappingColumn = {
-          id: row.target_id,
-          malcode: row.target_malcode,
-          table_name: row.target_table,
-          column_name: row.target_column,
-          data_type: row.target_data_type,
-          malcode_description: row.target_malcode_desc,
-          table_description: row.target_table_desc,
-          column_description: row.target_column_desc,
-          is_primary_key: row.target_is_pk,
-          is_nullable: row.target_is_nullable,
-          default_value: row.target_default,
-          created_at: row.target_created_at
-        };
-
-        const dbRow: DatabaseMappingRow = {
-          id: row.id,
-          mapping_file_id: row.mapping_file_id,
-          source_column_id: row.source_column_id,
-          target_column_id: row.target_column_id,
-          source_type: row.source_type,
-          target_type: row.target_type,
-          transformation: row.transformation,
-          join_clause: row.join_clause,
-          status: row.status,
-          created_by: row.created_by,
-          created_at: row.created_at,
-          updated_at: row.updated_at,
-          reviewer: row.reviewer,
-          reviewed_at: row.reviewed_at,
-          comments: row.comments ? JSON.parse(row.comments) : []
-        };
-
-        return convertDbMappingRow(dbRow, sourceColumn, targetColumn);
-      });
-
-      mappingFiles.push(convertDbMappingFile(file, mappingRows));
-    }
-
-    console.log(`Loaded ${mappingFiles.length} mapping files from Azure SQL`);
-    return mappingFiles;
-  } catch (error) {
-    console.error('Error loading mapping files from Azure SQL:', error);
-    throw error;
+    const mappingRows = fileRows.map(row => {
+      const sourceColumn = allColumns.find(col => col.id === row.source_column_id);
+      const targetColumn = allColumns.find(col => col.id === row.target_column_id);
+      
+      if (!sourceColumn || !targetColumn) {
+        console.warn('Missing column data for row:', row.id);
+        return null;
+      }
+      
+      return convertDbMappingRow(row, sourceColumn, targetColumn);
+    }).filter(Boolean) as MappingRow[];
+    
+    mappingFiles.push(convertDbMappingFile(file, mappingRows));
   }
+  
+  console.log(`Loaded ${mappingFiles.length} mapping files from simulated Azure SQL`);
+  return mappingFiles;
 };
 
 export const updateMappingRowStatus = async (
@@ -394,42 +301,47 @@ export const updateMappingRowStatus = async (
   status: MappingStatus,
   reviewer?: string
 ): Promise<void> => {
-  const pool = await getPool();
-  const request = pool.request();
-
-  await request
-    .input('id', sql.UniqueIdentifier, rowId)
-    .input('status', sql.NVarChar, status)
-    .input('reviewer', sql.NVarChar, reviewer)
-    .query(`
-      UPDATE mapping_rows 
-      SET status = @status, reviewer = @reviewer, reviewed_at = GETDATE(), updated_at = GETDATE()
-      WHERE id = @id
-    `);
+  const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+  const rowIndex = rows.findIndex(row => row.id === rowId);
+  
+  if (rowIndex >= 0) {
+    rows[rowIndex] = {
+      ...rows[rowIndex],
+      status,
+      reviewer,
+      reviewed_at: new Date(),
+      updated_at: new Date(),
+    };
+    saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
+  }
 };
 
 export const addMappingRowComment = async (
   rowId: string,
   comment: string
 ): Promise<void> => {
-  const pool = await getPool();
+  const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+  const rowIndex = rows.findIndex(row => row.id === rowId);
   
-  // Get current comments
-  const selectRequest = pool.request();
-  const currentResult = await selectRequest
-    .input('id', sql.UniqueIdentifier, rowId)
-    .query('SELECT comments FROM mapping_rows WHERE id = @id');
+  if (rowIndex >= 0) {
+    const currentComments = rows[rowIndex].comments || [];
+    rows[rowIndex] = {
+      ...rows[rowIndex],
+      comments: [...currentComments, comment],
+    };
+    saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
+  }
+};
 
-  const currentComments = currentResult.recordset[0]?.comments 
-    ? JSON.parse(currentResult.recordset[0].comments) 
-    : [];
+// Initialize with sample data if storage is empty
+export const initializeSampleData = (): void => {
+  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
   
-  const updatedComments = [...currentComments, comment];
-
-  // Update with new comments
-  const updateRequest = pool.request();
-  await updateRequest
-    .input('id', sql.UniqueIdentifier, rowId)
-    .input('comments', sql.NVarChar, JSON.stringify(updatedComments))
-    .query('UPDATE mapping_rows SET comments = @comments WHERE id = @id');
+  if (files.length === 0) {
+    console.log('Initializing with sample mapping data...');
+    
+    // This would typically be called on first load to populate with sample data
+    // For now, we'll just log that the system is ready
+    console.log('Simulated Azure SQL Database ready');
+  }
 };
