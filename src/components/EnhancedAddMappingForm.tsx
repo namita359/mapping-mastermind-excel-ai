@@ -99,6 +99,7 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
     const newMapping: MappingRow = {
       id: `mapping-${Date.now()}`,
       sourceColumn: {
+        id: `source-${Date.now()}`,
         malcode: formData.sourceMalcode,
         table: formData.sourceTable,
         column: formData.sourceColumn,
@@ -106,6 +107,7 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
         sourceType: formData.sourceType as 'SRZ_ADLS'
       },
       targetColumn: {
+        id: `target-${Date.now()}`,
         malcode: formData.targetMalcode,
         table: formData.targetTable,
         column: formData.targetColumn,
@@ -116,7 +118,7 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
       join: formData.joinClause || undefined,
       status: 'draft',
       createdBy: 'User',
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(),
       comments: []
     };
 
