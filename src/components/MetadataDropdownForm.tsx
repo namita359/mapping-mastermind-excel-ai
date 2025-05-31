@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { MappingRow } from '@/lib/types';
 import { useMetadataDropdowns } from '@/hooks/useMetadataDropdowns';
 
@@ -24,11 +24,13 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     sourceColumns,
     targetColumns,
     loading,
+    error,
     loadTablesForMalcode,
     loadColumnsForTable,
     getMalcodeById,
     getTableById,
     getColumnById,
+    refreshMalcodes,
   } = useMetadataDropdowns();
 
   const [formData, setFormData] = useState({
@@ -44,13 +46,14 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     targetType: 'CZ_ADLS'
   });
 
-  console.log('=== MetadataDropdownForm Debug ===');
-  console.log('Malcodes loaded:', malcodes?.length || 0);
-  console.log('Malcodes data:', malcodes);
+  console.log('=== MetadataDropdownForm Render Debug ===');
+  console.log('Malcodes state:', malcodes);
+  console.log('Malcodes count:', malcodes?.length || 0);
   console.log('Loading state:', loading);
+  console.log('Error state:', error);
   console.log('Source tables:', sourceTables?.length || 0);
   console.log('Target tables:', targetTables?.length || 0);
-  console.log('Component rendered at:', new Date().toISOString());
+  console.log('Form data:', formData);
 
   const handleSourceMalcodeChange = (malcodeId: string) => {
     console.log('Source malcode changed:', malcodeId);
@@ -170,22 +173,65 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
           <CardTitle className="text-sm flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             Debug Information
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={refreshMalcodes}
+              disabled={loading}
+              className="ml-auto"
+            >
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Refresh
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm space-y-2">
-          <div>Malcodes loaded: <strong>{malcodes?.length || 0}</strong></div>
-          <div>Loading state: <strong>{loading.toString()}</strong></div>
+          <div>Loading state: <strong className={loading ? 'text-blue-600' : 'text-green-600'}>{loading.toString()}</strong></div>
+          <div>Error state: <strong className={error ? 'text-red-600' : 'text-green-600'}>{error || 'None'}</strong></div>
+          <div>Malcodes loaded: <strong className={malcodes?.length > 0 ? 'text-green-600' : 'text-red-600'}>{malcodes?.length || 0}</strong></div>
           <div>Source tables: <strong>{sourceTables?.length || 0}</strong></div>
           <div>Target tables: <strong>{targetTables?.length || 0}</strong></div>
-          <div>Form data: <code className="text-xs">{JSON.stringify(formData, null, 2)}</code></div>
+          {malcodes?.length > 0 && (
+            <div className="mt-2">
+              <strong>Available malcodes:</strong>
+              <ul className="list-disc list-inside ml-4">
+                {malcodes.map(malcode => (
+                  <li key={malcode.id} className="text-xs">
+                    {malcode.malcode} (ID: {malcode.id})
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {error && (
+        <Card className="bg-red-50 border-red-200">
+          <CardContent className="flex items-center justify-center p-6">
+            <AlertCircle className="h-6 w-6 text-red-500 mr-2" />
+            <span className="text-red-700">{error}</span>
+          </CardContent>
+        </Card>
+      )}
       
       {loading && (
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="flex items-center justify-center p-6">
             <Loader2 className="h-6 w-6 animate-spin mr-2" />
             <span>Loading metadata...</span>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !error && malcodes?.length === 0 && (
+        <Card className="bg-orange-50 border-orange-200">
+          <CardContent className="flex items-center justify-center p-6 text-center">
+            <div>
+              <AlertCircle className="h-6 w-6 text-orange-500 mx-auto mb-2" />
+              <p className="text-orange-700 font-medium">No malcodes found</p>
+              <p className="text-orange-600 text-sm mt-1">Please add metadata first using the Metadata Management page.</p>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -202,11 +248,15 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                 Malcode <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
-                <Select value={formData.sourceMalcodeId} onValueChange={handleSourceMalcodeChange}>
-                  <SelectTrigger className="w-full h-10 bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-blue-500">
+                <Select 
+                  value={formData.sourceMalcodeId} 
+                  onValueChange={handleSourceMalcodeChange}
+                  disabled={loading || !malcodes || malcodes.length === 0}
+                >
+                  <SelectTrigger className="w-full h-10 bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-blue-500 disabled:opacity-50">
                     <SelectValue placeholder={
-                      loading ? "Loading..." : 
-                      malcodes.length === 0 ? "No malcodes available" : 
+                      loading ? "Loading malcodes..." : 
+                      !malcodes || malcodes.length === 0 ? "No malcodes available" : 
                       "Select source malcode"
                     } />
                   </SelectTrigger>
@@ -218,7 +268,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           Loading malcodes...
                         </div>
                       </SelectItem>
-                    ) : malcodes.length === 0 ? (
+                    ) : !malcodes || malcodes.length === 0 ? (
                       <SelectItem value="no-data" disabled>
                         No malcodes found - add metadata first
                       </SelectItem>
@@ -239,7 +289,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                   </SelectContent>
                 </Select>
               </div>
-              {malcodes.length === 0 && !loading && (
+              {!loading && (!malcodes || malcodes.length === 0) && (
                 <p className="text-xs text-red-500">No malcodes available. Please add metadata first.</p>
               )}
             </div>
@@ -345,11 +395,15 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
               <Label htmlFor="targetMalcode" className="text-sm font-medium">
                 Malcode <span className="text-red-500">*</span>
               </Label>
-              <Select value={formData.targetMalcodeId} onValueChange={handleTargetMalcodeChange}>
-                <SelectTrigger className="w-full h-10 bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-blue-500">
+              <Select 
+                value={formData.targetMalcodeId} 
+                onValueChange={handleTargetMalcodeChange}
+                disabled={loading || !malcodes || malcodes.length === 0}
+              >
+                <SelectTrigger className="w-full h-10 bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-blue-500 disabled:opacity-50">
                   <SelectValue placeholder={
-                    loading ? "Loading..." : 
-                    malcodes.length === 0 ? "No malcodes available" : 
+                    loading ? "Loading malcodes..." : 
+                    !malcodes || malcodes.length === 0 ? "No malcodes available" : 
                     "Select target malcode"
                   } />
                 </SelectTrigger>
@@ -361,7 +415,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                         Loading malcodes...
                       </div>
                     </SelectItem>
-                  ) : malcodes.length === 0 ? (
+                  ) : !malcodes || malcodes.length === 0 ? (
                     <SelectItem value="no-data" disabled>
                       No malcodes found - add metadata first
                     </SelectItem>
@@ -507,7 +561,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
         <Button variant="outline" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={loading}>
+        <Button onClick={handleSubmit} disabled={loading || !malcodes || malcodes.length === 0}>
           <Plus className="h-4 w-4 mr-2" />
           Add Mapping
         </Button>

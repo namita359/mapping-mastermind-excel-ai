@@ -11,19 +11,33 @@ export const useMetadataDropdowns = () => {
   const [sourceColumns, setSourceColumns] = useState<ColumnMetadata[]>([]);
   const [targetColumns, setTargetColumns] = useState<ColumnMetadata[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load all malcodes on component mount
   useEffect(() => {
+    console.log('useMetadataDropdowns: Component mounted, loading malcodes...');
     loadMalcodes();
   }, []);
 
   const loadMalcodes = async () => {
     try {
+      console.log('useMetadataDropdowns: Starting to load malcodes...');
       setLoading(true);
+      setError(null);
+      
       const data = await metadataService.getAllMalcodes();
-      setMalcodes(data);
+      console.log('useMetadataDropdowns: Received malcodes data:', data);
+      console.log('useMetadataDropdowns: Number of malcodes:', data?.length || 0);
+      
+      setMalcodes(data || []);
+      
+      if (!data || data.length === 0) {
+        console.warn('useMetadataDropdowns: No malcodes found in database');
+        setError('No malcodes found in database. Please add metadata first.');
+      }
     } catch (error) {
-      console.error('Error loading malcodes:', error);
+      console.error('useMetadataDropdowns: Error loading malcodes:', error);
+      setError(`Failed to load malcodes: ${error.message}`);
       toast({
         title: "Error",
         description: "Failed to load malcodes",
@@ -31,12 +45,16 @@ export const useMetadataDropdowns = () => {
       });
     } finally {
       setLoading(false);
+      console.log('useMetadataDropdowns: Finished loading malcodes');
     }
   };
 
   const loadTablesForMalcode = async (malcodeId: string, isSource: boolean) => {
     try {
+      console.log(`useMetadataDropdowns: Loading tables for malcode ${malcodeId}, isSource: ${isSource}`);
       const tables = await metadataService.getTablesByMalcode(malcodeId);
+      console.log(`useMetadataDropdowns: Received ${tables.length} tables for malcode ${malcodeId}`);
+      
       if (isSource) {
         setSourceTables(tables);
         setSourceColumns([]); // Clear columns when malcode changes
@@ -45,7 +63,7 @@ export const useMetadataDropdowns = () => {
         setTargetColumns([]); // Clear columns when malcode changes
       }
     } catch (error) {
-      console.error('Error loading tables:', error);
+      console.error('useMetadataDropdowns: Error loading tables:', error);
       toast({
         title: "Error",
         description: "Failed to load tables",
@@ -56,14 +74,17 @@ export const useMetadataDropdowns = () => {
 
   const loadColumnsForTable = async (tableId: string, isSource: boolean) => {
     try {
+      console.log(`useMetadataDropdowns: Loading columns for table ${tableId}, isSource: ${isSource}`);
       const columns = await metadataService.getColumnsByTable(tableId);
+      console.log(`useMetadataDropdowns: Received ${columns.length} columns for table ${tableId}`);
+      
       if (isSource) {
         setSourceColumns(columns);
       } else {
         setTargetColumns(columns);
       }
     } catch (error) {
-      console.error('Error loading columns:', error);
+      console.error('useMetadataDropdowns: Error loading columns:', error);
       toast({
         title: "Error",
         description: "Failed to load columns",
@@ -73,17 +94,23 @@ export const useMetadataDropdowns = () => {
   };
 
   const getMalcodeById = (malcodeId: string) => {
-    return malcodes.find(m => m.id === malcodeId);
+    const found = malcodes.find(m => m.id === malcodeId);
+    console.log(`useMetadataDropdowns: getMalcodeById(${malcodeId}) result:`, found);
+    return found;
   };
 
   const getTableById = (tableId: string, isSource: boolean) => {
     const tables = isSource ? sourceTables : targetTables;
-    return tables.find(t => t.id === tableId);
+    const found = tables.find(t => t.id === tableId);
+    console.log(`useMetadataDropdowns: getTableById(${tableId}, ${isSource}) result:`, found);
+    return found;
   };
 
   const getColumnById = (columnId: string, isSource: boolean) => {
     const columns = isSource ? sourceColumns : targetColumns;
-    return columns.find(c => c.id === columnId);
+    const found = columns.find(c => c.id === columnId);
+    console.log(`useMetadataDropdowns: getColumnById(${columnId}, ${isSource}) result:`, found);
+    return found;
   };
 
   return {
@@ -93,10 +120,12 @@ export const useMetadataDropdowns = () => {
     sourceColumns,
     targetColumns,
     loading,
+    error,
     loadTablesForMalcode,
     loadColumnsForTable,
     getMalcodeById,
     getTableById,
     getColumnById,
+    refreshMalcodes: loadMalcodes,
   };
 };
