@@ -1,34 +1,23 @@
 
-import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 import { MappingFile, MappingRow } from '@/lib/types';
-import { createAzureSqlBackendService } from '@/lib/azureSqlBackendService';
+import { useToast } from '@/hooks/use-toast';
+import { azureSqlService } from '@/lib/azureSqlService';
 
 export const useAzureSqlFileOperations = (
   mappingFile: MappingFile,
   setMappingFile: (file: MappingFile) => void
 ) => {
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileUpload = async (file: File, importedMappingFile?: MappingFile) => {
     if (importedMappingFile) {
-      try {
-        const backendService = createAzureSqlBackendService();
-        await backendService.saveMappingFile(importedMappingFile);
-        setMappingFile(importedMappingFile);
-        
-        toast({
-          title: "Mapping file imported and saved",
-          description: `${importedMappingFile.rows.length} mappings loaded and saved to Azure SQL Database`,
-        });
-      } catch (error) {
-        console.error('Error saving imported file:', error);
-        toast({
-          title: "Import successful, save failed",
-          description: `File was imported but failed to save to Azure SQL Database: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          variant: "destructive"
-        });
-        setMappingFile(importedMappingFile);
-      }
+      setMappingFile(importedMappingFile);
+      toast({
+        title: "Mapping file imported",
+        description: `${importedMappingFile.rows.length} mappings loaded from file`,
+      });
       return;
     }
     
@@ -39,32 +28,46 @@ export const useAzureSqlFileOperations = (
   };
 
   const handleAddMapping = async (newRow: MappingRow) => {
+    console.log('useAzureSqlFileOperations - handleAddMapping called with:', newRow);
+    
     try {
-      const updatedFile = {
-        ...mappingFile,
-        rows: [...mappingFile.rows, newRow]
+      setIsUploading(true);
+      
+      // Add to Azure SQL Database
+      await azureSqlService.createMapping(newRow);
+      console.log('useAzureSqlFileOperations - Mapping saved to database successfully');
+      
+      // Update local state immediately
+      const updatedRows = [...mappingFile.rows, newRow];
+      const updatedMappingFile = { 
+        ...mappingFile, 
+        rows: updatedRows,
+        updatedAt: new Date()
       };
       
-      const backendService = createAzureSqlBackendService();
-      await backendService.saveMappingFile(updatedFile);
-      setMappingFile(updatedFile);
+      console.log('useAzureSqlFileOperations - Updating local state with new mapping file:', updatedMappingFile);
+      setMappingFile(updatedMappingFile);
       
       toast({
-        title: "Mapping Added",
-        description: `New mapping saved to Azure SQL Database successfully.`,
+        title: "Mapping Added Successfully",
+        description: `New mapping from ${newRow.sourceColumn.malcode}.${newRow.sourceColumn.table}.${newRow.sourceColumn.column} to ${newRow.targetColumn.malcode}.${newRow.targetColumn.table}.${newRow.targetColumn.column} has been saved.`,
       });
+      
     } catch (error) {
-      console.error('Error adding mapping:', error);
+      console.error('useAzureSqlFileOperations - Error adding mapping:', error);
       toast({
-        title: "Error",
-        description: `Failed to save new mapping to Azure SQL Database: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        title: "Error Adding Mapping",
+        description: "Failed to save mapping to database. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsUploading(false);
     }
   };
 
   return {
     handleFileUpload,
-    handleAddMapping
+    handleAddMapping,
+    isUploading,
   };
 };

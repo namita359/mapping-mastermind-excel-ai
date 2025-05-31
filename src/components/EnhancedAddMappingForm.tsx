@@ -22,6 +22,8 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('dropdowns');
 
+  console.log('EnhancedAddMappingForm - Rendering with activeTab:', activeTab);
+
   // Manual form state
   const [formData, setFormData] = useState({
     sourceMalcode: '',
@@ -78,7 +80,7 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
     });
   };
 
-  const handleSubmit = () => {
+  const handleManualSubmit = () => {
     // Validate required fields
     const requiredFields = [
       'sourceMalcode', 'sourceTable', 'sourceColumn',
@@ -122,12 +124,18 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
       comments: []
     };
 
+    console.log('EnhancedAddMappingForm - Manual submission:', newMapping);
     onAddMapping(newMapping);
     onClose();
   };
 
+  const handleMappingAdd = (mapping: MappingRow) => {
+    console.log('EnhancedAddMappingForm - Received mapping from dropdown form:', mapping);
+    onAddMapping(mapping);
+  };
+
   return (
-    <Card className="w-full max-w-4xl">
+    <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Plus className="h-5 w-5" />
@@ -151,8 +159,8 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
             <TabsTrigger value="manual">Manual Entry</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dropdowns">
-            <MetadataDropdownForm onAddMapping={onAddMapping} onClose={onClose} />
+          <TabsContent value="dropdowns" className="space-y-4">
+            <MetadataDropdownForm onAddMapping={handleMappingAdd} onClose={onClose} />
           </TabsContent>
 
           <TabsContent value="search" className="space-y-6">
@@ -391,6 +399,16 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
                   rows={3}
                 />
               </div>
+            </div>
+
+            {/* Actions for manual mode only */}
+            <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleManualSubmit}>
+                Add Mapping
+              </Button>
             </div>
           </TabsContent>
         </Tabs>

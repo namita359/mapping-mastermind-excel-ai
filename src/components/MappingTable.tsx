@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { MappingRow, MappingStatus } from "../lib/types";
 import { useTableFilters } from "./table/hooks/useTableFilters";
@@ -20,6 +20,8 @@ interface MappingTableProps {
 const ROWS_PER_PAGE = 10;
 
 const MappingTable = ({ rows, selectedRow, onRowSelect, onStatusChange }: MappingTableProps) => {
+  console.log('MappingTable - Rendering with rows:', rows?.length || 0);
+  
   // Custom hooks for table functionality
   const {
     filters,
@@ -44,6 +46,12 @@ const MappingTable = ({ rows, selectedRow, onRowSelect, onStatusChange }: Mappin
     paginateRows,
     getPageNumbers
   } = useTablePagination(ROWS_PER_PAGE);
+
+  // Reset pagination when rows change
+  useEffect(() => {
+    console.log('MappingTable - Rows changed, resetting pagination');
+    resetPagination();
+  }, [rows?.length]);
 
   // Helper function to get column values for filtering and sorting
   const getColumnValue = (row: MappingRow, column: string): string => {
@@ -92,9 +100,16 @@ const MappingTable = ({ rows, selectedRow, onRowSelect, onStatusChange }: Mappin
   };
 
   // Apply filters, sorting, and pagination
-  const filteredRows = filterRows(rows, getColumnValue);
+  const filteredRows = filterRows(rows || [], getColumnValue);
   const sortedRows = sortRows(filteredRows, getColumnValue);
   const { paginatedRows, totalPages, startIndex, endIndex, totalRows } = paginateRows(sortedRows);
+
+  console.log('MappingTable - Processed rows:', {
+    original: rows?.length || 0,
+    filtered: filteredRows.length,
+    sorted: sortedRows.length,
+    paginated: paginatedRows.length
+  });
 
   return (
     <div className="space-y-2">
@@ -130,7 +145,10 @@ const MappingTable = ({ rows, selectedRow, onRowSelect, onStatusChange }: Mappin
               {paginatedRows.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                    No records found. Try adjusting your filters.
+                    {(rows?.length || 0) === 0 
+                      ? "No mappings found. Add a new mapping to get started."
+                      : "No records found. Try adjusting your filters."
+                    }
                   </TableCell>
                 </TableRow>
               )}
