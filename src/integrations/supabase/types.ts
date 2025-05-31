@@ -9,6 +9,89 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      column_metadata: {
+        Row: {
+          business_description: string | null
+          column_name: string
+          created_at: string | null
+          created_by: string
+          data_type: string | null
+          default_value: string | null
+          id: string
+          is_active: boolean | null
+          is_nullable: boolean | null
+          is_primary_key: boolean | null
+          table_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          business_description?: string | null
+          column_name: string
+          created_at?: string | null
+          created_by: string
+          data_type?: string | null
+          default_value?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_nullable?: boolean | null
+          is_primary_key?: boolean | null
+          table_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          business_description?: string | null
+          column_name?: string
+          created_at?: string | null
+          created_by?: string
+          data_type?: string | null
+          default_value?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_nullable?: boolean | null
+          is_primary_key?: boolean | null
+          table_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "column_metadata_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table_metadata"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      malcode_metadata: {
+        Row: {
+          business_description: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          is_active: boolean | null
+          malcode: string
+          updated_at: string | null
+        }
+        Insert: {
+          business_description?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_active?: boolean | null
+          malcode: string
+          updated_at?: string | null
+        }
+        Update: {
+          business_description?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_active?: boolean | null
+          malcode?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       mapping_columns: {
         Row: {
           column_description: string | null
@@ -162,6 +245,47 @@ export type Database = {
             columns: ["target_column_id"]
             isOneToOne: false
             referencedRelation: "mapping_columns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      table_metadata: {
+        Row: {
+          business_description: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          is_active: boolean | null
+          malcode_id: string
+          table_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          business_description?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          is_active?: boolean | null
+          malcode_id: string
+          table_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          business_description?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          is_active?: boolean | null
+          malcode_id?: string
+          table_name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_metadata_malcode_id_fkey"
+            columns: ["malcode_id"]
+            isOneToOne: false
+            referencedRelation: "malcode_metadata"
             referencedColumns: ["id"]
           },
         ]
