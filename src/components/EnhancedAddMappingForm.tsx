@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Database } from 'lucide-react';
 import { MappingRow } from '@/lib/types';
 import MetadataSearch from './MetadataSearch';
+import MetadataDropdownForm from './MetadataDropdownForm';
 import { MetadataSearchResult } from '@/lib/metadataService';
 
 interface EnhancedAddMappingFormProps {
@@ -20,7 +20,7 @@ interface EnhancedAddMappingFormProps {
 
 const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFormProps) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('manual');
+  const [activeTab, setActiveTab] = useState('dropdowns');
 
   // Manual form state
   const [formData, setFormData] = useState({
@@ -134,15 +134,110 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
           Add New Mapping
         </CardTitle>
         <CardDescription>
-          Create a new data mapping using manual entry or metadata search
+          Create a new data mapping using metadata dropdowns, search, or manual entry
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="dropdowns" className="flex items-center gap-2">
+              <Database className="h-4 w-4" />
+              Metadata Dropdowns
+            </TabsTrigger>
+            <TabsTrigger value="search" className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Search
+            </TabsTrigger>
             <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-            <TabsTrigger value="metadata">Metadata Search</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="dropdowns">
+            <MetadataDropdownForm onAddMapping={onAddMapping} onClose={onClose} />
+          </TabsContent>
+
+          <TabsContent value="search" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Source Metadata Search */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    Search Source Metadata
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MetadataSearch
+                    onSelectMetadata={handleSourceMetadataSelect}
+                    placeholder="Search for source column metadata..."
+                  />
+                  {sourceMetadata && (
+                    <Card className="mt-4 bg-green-50 border-green-200">
+                      <CardContent className="p-3">
+                        <div className="text-sm">
+                          <strong>Selected:</strong> {sourceMetadata.malcode}.{sourceMetadata.table_name}.{sourceMetadata.column_name}
+                          {sourceMetadata.business_description && (
+                            <p className="text-muted-foreground mt-1">{sourceMetadata.business_description}</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Target Metadata Search */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    Search Target Metadata
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MetadataSearch
+                    onSelectMetadata={handleTargetMetadataSelect}
+                    placeholder="Search for target column metadata..."
+                  />
+                  {targetMetadata && (
+                    <Card className="mt-4 bg-blue-50 border-blue-200">
+                      <CardContent className="p-3">
+                        <div className="text-sm">
+                          <strong>Selected:</strong> {targetMetadata.malcode}.{targetMetadata.table_name}.{targetMetadata.column_name}
+                          {targetMetadata.business_description && (
+                            <p className="text-muted-foreground mt-1">{targetMetadata.business_description}</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Transformation and Join for metadata mode */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="transformationMeta">Transformation</Label>
+                <Textarea
+                  id="transformationMeta"
+                  value={formData.transformation}
+                  onChange={(e) => handleInputChange('transformation', e.target.value)}
+                  placeholder="Enter transformation logic (optional)"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label htmlFor="joinClauseMeta">Join Clause</Label>
+                <Textarea
+                  id="joinClauseMeta"
+                  value={formData.joinClause}
+                  onChange={(e) => handleInputChange('joinClause', e.target.value)}
+                  placeholder="Enter join clause (optional)"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </TabsContent>
 
           <TabsContent value="manual" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -290,90 +385,6 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
                 <Label htmlFor="joinClause">Join Clause</Label>
                 <Textarea
                   id="joinClause"
-                  value={formData.joinClause}
-                  onChange={(e) => handleInputChange('joinClause', e.target.value)}
-                  placeholder="Enter join clause (optional)"
-                  rows={3}
-                />
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="metadata" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Source Metadata Search */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    Search Source Metadata
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <MetadataSearch
-                    onSelectMetadata={handleSourceMetadataSelect}
-                    placeholder="Search for source column metadata..."
-                  />
-                  {sourceMetadata && (
-                    <Card className="mt-4 bg-green-50 border-green-200">
-                      <CardContent className="p-3">
-                        <div className="text-sm">
-                          <strong>Selected:</strong> {sourceMetadata.malcode}.{sourceMetadata.table_name}.{sourceMetadata.column_name}
-                          {sourceMetadata.business_description && (
-                            <p className="text-muted-foreground mt-1">{sourceMetadata.business_description}</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Target Metadata Search */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    Search Target Metadata
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <MetadataSearch
-                    onSelectMetadata={handleTargetMetadataSelect}
-                    placeholder="Search for target column metadata..."
-                  />
-                  {targetMetadata && (
-                    <Card className="mt-4 bg-blue-50 border-blue-200">
-                      <CardContent className="p-3">
-                        <div className="text-sm">
-                          <strong>Selected:</strong> {targetMetadata.malcode}.{targetMetadata.table_name}.{targetMetadata.column_name}
-                          {targetMetadata.business_description && (
-                            <p className="text-muted-foreground mt-1">{targetMetadata.business_description}</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Transformation and Join for metadata mode */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="transformationMeta">Transformation</Label>
-                <Textarea
-                  id="transformationMeta"
-                  value={formData.transformation}
-                  onChange={(e) => handleInputChange('transformation', e.target.value)}
-                  placeholder="Enter transformation logic (optional)"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label htmlFor="joinClauseMeta">Join Clause</Label>
-                <Textarea
-                  id="joinClauseMeta"
                   value={formData.joinClause}
                   onChange={(e) => handleInputChange('joinClause', e.target.value)}
                   placeholder="Enter join clause (optional)"
