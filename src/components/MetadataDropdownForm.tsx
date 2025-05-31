@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { MappingRow } from '@/lib/types';
 import { useMetadataDropdowns } from '@/hooks/useMetadataDropdowns';
 
@@ -44,7 +44,11 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     targetType: 'CZ_ADLS'
   });
 
+  console.log('MetadataDropdownForm render - malcodes:', malcodes.length);
+  console.log('MetadataDropdownForm render - loading:', loading);
+
   const handleSourceMalcodeChange = (malcodeId: string) => {
+    console.log('Source malcode changed:', malcodeId);
     setFormData(prev => ({
       ...prev,
       sourceMalcodeId: malcodeId,
@@ -55,6 +59,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
   };
 
   const handleTargetMalcodeChange = (malcodeId: string) => {
+    console.log('Target malcode changed:', malcodeId);
     setFormData(prev => ({
       ...prev,
       targetMalcodeId: malcodeId,
@@ -65,6 +70,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
   };
 
   const handleSourceTableChange = (tableId: string) => {
+    console.log('Source table changed:', tableId);
     setFormData(prev => ({
       ...prev,
       sourceTableId: tableId,
@@ -74,6 +80,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
   };
 
   const handleTargetTableChange = (tableId: string) => {
+    console.log('Target table changed:', tableId);
     setFormData(prev => ({
       ...prev,
       targetTableId: tableId,
@@ -152,29 +159,39 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
   };
 
   return (
-    <Card className="w-full max-w-4xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Add New Mapping (Metadata-Driven)
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Source Column */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Source Column</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="sourceMalcode">Malcode</Label>
-                <Select value={formData.sourceMalcodeId} onValueChange={handleSourceMalcodeChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select source malcode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {malcodes.map((malcode) => (
+    <div className="space-y-6">
+      {loading && (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+          <span>Loading metadata...</span>
+        </div>
+      )}
+      
+      {/* Debug info */}
+      <div className="text-sm text-gray-500 p-2 bg-gray-50 rounded">
+        Debug: {malcodes.length} malcodes loaded, loading: {loading.toString()}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Source Column */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Source Column</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="sourceMalcode">Malcode</Label>
+              <Select value={formData.sourceMalcodeId} onValueChange={handleSourceMalcodeChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder={malcodes.length === 0 ? "No malcodes available" : "Select source malcode"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {malcodes.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No malcodes found - add metadata first
+                    </SelectItem>
+                  ) : (
+                    malcodes.map((malcode) => (
                       <SelectItem key={malcode.id} value={malcode.id}>
                         {malcode.malcode}
                         {malcode.business_description && (
@@ -183,23 +200,29 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           </span>
                         )}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label htmlFor="sourceTable">Table</Label>
-                <Select 
-                  value={formData.sourceTableId} 
-                  onValueChange={handleSourceTableChange}
-                  disabled={!formData.sourceMalcodeId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select source table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sourceTables.map((table) => (
+            <div>
+              <Label htmlFor="sourceTable">Table</Label>
+              <Select 
+                value={formData.sourceTableId} 
+                onValueChange={handleSourceTableChange}
+                disabled={!formData.sourceMalcodeId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!formData.sourceMalcodeId ? "Select malcode first" : sourceTables.length === 0 ? "No tables available" : "Select source table"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sourceTables.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No tables found for this malcode
+                    </SelectItem>
+                  ) : (
+                    sourceTables.map((table) => (
                       <SelectItem key={table.id} value={table.id}>
                         {table.table_name}
                         {table.business_description && (
@@ -208,23 +231,29 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           </span>
                         )}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label htmlFor="sourceColumn">Column</Label>
-                <Select 
-                  value={formData.sourceColumnId} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, sourceColumnId: value }))}
-                  disabled={!formData.sourceTableId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select source column" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sourceColumns.map((column) => (
+            <div>
+              <Label htmlFor="sourceColumn">Column</Label>
+              <Select 
+                value={formData.sourceColumnId} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, sourceColumnId: value }))}
+                disabled={!formData.sourceTableId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!formData.sourceTableId ? "Select table first" : sourceColumns.length === 0 ? "No columns available" : "Select source column"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {sourceColumns.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No columns found for this table
+                    </SelectItem>
+                  ) : (
+                    sourceColumns.map((column) => (
                       <SelectItem key={column.id} value={column.id}>
                         {column.column_name}
                         <span className="text-muted-foreground ml-2">
@@ -236,39 +265,45 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           </span>
                         )}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label htmlFor="sourceType">Source Type</Label>
-                <Select value={formData.sourceType} onValueChange={(value) => setFormData(prev => ({ ...prev, sourceType: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SRZ_ADLS">SRZ_ADLS</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+            <div>
+              <Label htmlFor="sourceType">Source Type</Label>
+              <Select value={formData.sourceType} onValueChange={(value) => setFormData(prev => ({ ...prev, sourceType: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="SRZ_ADLS">SRZ_ADLS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Target Column */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Target Column</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="targetMalcode">Malcode</Label>
-                <Select value={formData.targetMalcodeId} onValueChange={handleTargetMalcodeChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select target malcode" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {malcodes.map((malcode) => (
+        {/* Target Column */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Target Column</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="targetMalcode">Malcode</Label>
+              <Select value={formData.targetMalcodeId} onValueChange={handleTargetMalcodeChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder={malcodes.length === 0 ? "No malcodes available" : "Select target malcode"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {malcodes.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No malcodes found - add metadata first
+                    </SelectItem>
+                  ) : (
+                    malcodes.map((malcode) => (
                       <SelectItem key={malcode.id} value={malcode.id}>
                         {malcode.malcode}
                         {malcode.business_description && (
@@ -277,23 +312,29 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           </span>
                         )}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label htmlFor="targetTable">Table</Label>
-                <Select 
-                  value={formData.targetTableId} 
-                  onValueChange={handleTargetTableChange}
-                  disabled={!formData.targetMalcodeId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select target table" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetTables.map((table) => (
+            <div>
+              <Label htmlFor="targetTable">Table</Label>
+              <Select 
+                value={formData.targetTableId} 
+                onValueChange={handleTargetTableChange}
+                disabled={!formData.targetMalcodeId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!formData.targetMalcodeId ? "Select malcode first" : targetTables.length === 0 ? "No tables available" : "Select target table"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {targetTables.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No tables found for this malcode
+                    </SelectItem>
+                  ) : (
+                    targetTables.map((table) => (
                       <SelectItem key={table.id} value={table.id}>
                         {table.table_name}
                         {table.business_description && (
@@ -302,23 +343,29 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           </span>
                         )}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label htmlFor="targetColumn">Column</Label>
-                <Select 
-                  value={formData.targetColumnId} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, targetColumnId: value }))}
-                  disabled={!formData.targetTableId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select target column" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {targetColumns.map((column) => (
+            <div>
+              <Label htmlFor="targetColumn">Column</Label>
+              <Select 
+                value={formData.targetColumnId} 
+                onValueChange={(value) => setFormData(prev => ({ ...prev, targetColumnId: value }))}
+                disabled={!formData.targetTableId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!formData.targetTableId ? "Select table first" : targetColumns.length === 0 ? "No columns available" : "Select target column"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {targetColumns.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No columns found for this table
+                    </SelectItem>
+                  ) : (
+                    targetColumns.map((column) => (
                       <SelectItem key={column.id} value={column.id}>
                         {column.column_name}
                         <span className="text-muted-foreground ml-2">
@@ -330,62 +377,62 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
                           </span>
                         )}
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <Label htmlFor="targetType">Target Type</Label>
-                <Select value={formData.targetType} onValueChange={(value) => setFormData(prev => ({ ...prev, targetType: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CZ_ADLS">CZ_ADLS</SelectItem>
-                    <SelectItem value="SYNAPSE_TABLE">SYNAPSE_TABLE</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div>
+              <Label htmlFor="targetType">Target Type</Label>
+              <Select value={formData.targetType} onValueChange={(value) => setFormData(prev => ({ ...prev, targetType: value }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CZ_ADLS">CZ_ADLS</SelectItem>
+                  <SelectItem value="SYNAPSE_TABLE">SYNAPSE_TABLE</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Transformation and Join */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="transformation">Transformation</Label>
-            <Textarea
-              id="transformation"
-              value={formData.transformation}
-              onChange={(e) => setFormData(prev => ({ ...prev, transformation: e.target.value }))}
-              placeholder="Enter transformation logic (optional)"
-              rows={3}
-            />
-          </div>
-          <div>
-            <Label htmlFor="joinClause">Join Clause</Label>
-            <Textarea
-              id="joinClause"
-              value={formData.joinClause}
-              onChange={(e) => setFormData(prev => ({ ...prev, joinClause: e.target.value }))}
-              placeholder="Enter join clause (optional)"
-              rows={3}
-            />
-          </div>
+      {/* Transformation and Join */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="transformation">Transformation</Label>
+          <Textarea
+            id="transformation"
+            value={formData.transformation}
+            onChange={(e) => setFormData(prev => ({ ...prev, transformation: e.target.value }))}
+            placeholder="Enter transformation logic (optional)"
+            rows={3}
+          />
         </div>
+        <div>
+          <Label htmlFor="joinClause">Join Clause</Label>
+          <Textarea
+            id="joinClause"
+            value={formData.joinClause}
+            onChange={(e) => setFormData(prev => ({ ...prev, joinClause: e.target.value }))}
+            placeholder="Enter join clause (optional)"
+            rows={3}
+          />
+        </div>
+      </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-6 border-t">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            Add Mapping
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-6 border-t">
+        <Button variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={loading}>
+          Add Mapping
+        </Button>
+      </div>
+    </div>
   );
 };
 
