@@ -1,10 +1,9 @@
-
 import { MappingFile, MappingRow, MappingStatus } from './types';
 
 export class AzureSqlBackendService {
   private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:3000') {
+  constructor(baseUrl: string = 'http://localhost:3001') {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
@@ -100,7 +99,7 @@ export class AzureSqlBackendService {
 
 // Configuration management
 export const getAzureSqlBackendUrl = (): string => {
-  return localStorage.getItem('azure_sql_backend_url') || 'http://localhost:3000';
+  return localStorage.getItem('azure_sql_backend_url') || 'http://localhost:3001';
 };
 
 export const setAzureSqlBackendUrl = (url: string): void => {

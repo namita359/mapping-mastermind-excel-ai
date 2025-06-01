@@ -1,4 +1,3 @@
-
 interface MappingInfo {
   name: string;
   rows: Array<{
@@ -175,7 +174,7 @@ export class BackendApiService {
 
 // Configuration management for backend API
 export const getBackendApiUrl = (): string => {
-  return localStorage.getItem('backend_api_url') || 'http://localhost:3000';
+  return localStorage.getItem('backend_api_url') || 'http://localhost:3001';
 };
 
 export const setBackendApiUrl = (url: string): void => {

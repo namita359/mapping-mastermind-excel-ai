@@ -1,5 +1,5 @@
 import { MappingFile, MappingRow, MappingColumn, MappingStatus } from './types';
-import { supabase } from '@/integrations/supabase/client';
+import { createAzureSqlBackendService } from './azureSqlBackendService';
 
 // Database interfaces (keeping the same structure for compatibility)
 export interface DatabaseMappingFile {
@@ -105,228 +105,34 @@ const convertDbMappingRow = (
   comments: dbRow.comments || [],
 });
 
-// Supabase service functions
+// Azure SQL backend service functions
 const createMappingFile = async (mappingFile: MappingFile): Promise<string> => {
-  console.log('Creating mapping file in Supabase:', mappingFile.name);
-  
-  const { data, error } = await supabase
-    .from('mapping_files')
-    .insert({
-      name: mappingFile.name,
-      description: mappingFile.description,
-      source_system: mappingFile.sourceSystem,
-      target_system: mappingFile.targetSystem,
-      status: mappingFile.status,
-      created_by: mappingFile.createdBy,
-    })
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error creating mapping file:', error);
-    throw error;
-  }
-  
-  console.log('Successfully created mapping file:', data.id);
-  return data.id;
+  const backendService = createAzureSqlBackendService();
+  await backendService.saveMappingFile(mappingFile);
+  return mappingFile.id;
 };
 
 const upsertMappingColumn = async (column: MappingColumn): Promise<string> => {
-  console.log('Upserting mapping column:', column.malcode, column.table, column.column);
-  
-  // Check if column exists
-  const { data: existing, error: selectError } = await supabase
-    .from('mapping_columns')
-    .select('id')
-    .eq('malcode', column.malcode)
-    .eq('table_name', column.table)
-    .eq('column_name', column.column)
-    .maybeSingle();
-  
-  if (selectError) {
-    console.error('Error checking existing column:', selectError);
-    throw selectError;
-  }
-  
-  if (existing) {
-    console.log('Column already exists:', existing.id);
-    return existing.id;
-  }
-  
-  // Create new column
-  const { data, error } = await supabase
-    .from('mapping_columns')
-    .insert({
-      malcode: column.malcode,
-      table_name: column.table,
-      column_name: column.column,
-      data_type: column.dataType,
-      malcode_description: column.businessMetadata?.malcodeDescription,
-      table_description: column.businessMetadata?.tableDescription,
-      column_description: column.businessMetadata?.columnDescription,
-      is_primary_key: column.isPrimaryKey,
-      is_nullable: column.isNullable,
-      default_value: column.defaultValue,
-    })
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error creating mapping column:', error);
-    throw error;
-  }
-  
-  console.log('Successfully created mapping column:', data.id);
-  return data.id;
+  // This will be handled by the backend when saving mapping files
+  return column.id;
 };
 
 const createMappingRow = async (
   mappingFileId: string,
   row: MappingRow
 ): Promise<void> => {
+  // This will be handled by the backend when saving mapping files
   console.log('Creating mapping row for file:', mappingFileId);
-  
-  const sourceColumnId = await upsertMappingColumn(row.sourceColumn);
-  const targetColumnId = await upsertMappingColumn(row.targetColumn);
-  
-  const { error } = await supabase
-    .from('mapping_rows')
-    .insert({
-      mapping_file_id: mappingFileId,
-      source_column_id: sourceColumnId,
-      target_column_id: targetColumnId,
-      source_type: row.sourceColumn.sourceType as 'SRZ_ADLS',
-      target_type: row.targetColumn.targetType as 'CZ_ADLS' | 'SYNAPSE_TABLE',
-      transformation: row.transformation,
-      join_clause: row.join,
-      status: row.status,
-      created_by: row.createdBy,
-      reviewer: row.reviewer,
-      reviewed_at: row.reviewedAt,
-      comments: row.comments || [],
-    });
-  
-  if (error) {
-    console.error('Error creating mapping row:', error);
-    throw error;
-  }
-  
-  console.log('Successfully created mapping row');
 };
 
 const saveMappingFile = async (mappingFile: MappingFile): Promise<void> => {
-  console.log('Saving mapping file to Supabase:', mappingFile.name);
-  
-  // Check if file exists
-  const { data: existingFile, error: selectError } = await supabase
-    .from('mapping_files')
-    .select('id')
-    .eq('name', mappingFile.name)
-    .maybeSingle();
-  
-  if (selectError) {
-    console.error('Error checking existing file:', selectError);
-    throw selectError;
-  }
-  
-  let mappingFileId: string;
-  
-  if (existingFile) {
-    // Update existing file
-    mappingFileId = existingFile.id;
-    const { error: updateError } = await supabase
-      .from('mapping_files')
-      .update({
-        description: mappingFile.description,
-        source_system: mappingFile.sourceSystem,
-        target_system: mappingFile.targetSystem,
-        status: mappingFile.status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', mappingFileId);
-    
-    if (updateError) {
-      console.error('Error updating mapping file:', updateError);
-      throw updateError;
-    }
-    
-    // Delete existing rows for this file
-    const { error: deleteError } = await supabase
-      .from('mapping_rows')
-      .delete()
-      .eq('mapping_file_id', mappingFileId);
-    
-    if (deleteError) {
-      console.error('Error deleting existing rows:', deleteError);
-      throw deleteError;
-    }
-  } else {
-    // Create new file
-    mappingFileId = await createMappingFile(mappingFile);
-  }
-  
-  // Save all mapping rows
-  for (const row of mappingFile.rows) {
-    await createMappingRow(mappingFileId, row);
-  }
-  
-  console.log('Successfully saved mapping file to Supabase');
+  const backendService = createAzureSqlBackendService();
+  await backendService.saveMappingFile(mappingFile);
 };
 
 const loadMappingFiles = async (): Promise<MappingFile[]> => {
-  console.log('Loading mapping files from Supabase...');
-  
-  const { data: files, error: filesError } = await supabase
-    .from('mapping_files')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (filesError) {
-    console.error('Error loading mapping files:', filesError);
-    throw filesError;
-  }
-  
-  const { data: allColumns, error: columnsError } = await supabase
-    .from('mapping_columns')
-    .select('*');
-  
-  if (columnsError) {
-    console.error('Error loading mapping columns:', columnsError);
-    throw columnsError;
-  }
-  
-  const { data: allRows, error: rowsError } = await supabase
-    .from('mapping_rows')
-    .select('*');
-  
-  if (rowsError) {
-    console.error('Error loading mapping rows:', rowsError);
-    throw rowsError;
-  }
-  
-  const mappingFiles: MappingFile[] = [];
-  
-  for (const file of files || []) {
-    // Get rows for this file
-    const fileRows = (allRows || []).filter(row => row.mapping_file_id === file.id);
-    
-    const mappingRows = fileRows.map(row => {
-      const sourceColumn = (allColumns || []).find(col => col.id === row.source_column_id);
-      const targetColumn = (allColumns || []).find(col => col.id === row.target_column_id);
-      
-      if (!sourceColumn || !targetColumn) {
-        console.warn('Missing column data for row:', row.id);
-        return null;
-      }
-      
-      return convertDbMappingRow(row, sourceColumn, targetColumn);
-    }).filter(Boolean) as MappingRow[];
-    
-    mappingFiles.push(convertDbMappingFile(file, mappingRows));
-  }
-  
-  console.log(`Loaded ${mappingFiles.length} mapping files from Supabase`);
-  return mappingFiles;
+  const backendService = createAzureSqlBackendService();
+  return await backendService.loadMappingFiles();
 };
 
 const updateMappingRowStatus = async (
@@ -334,63 +140,21 @@ const updateMappingRowStatus = async (
   status: MappingStatus,
   reviewer?: string
 ): Promise<void> => {
-  console.log('Updating mapping row status:', rowId, status);
-  
-  const { error } = await supabase
-    .from('mapping_rows')
-    .update({
-      status,
-      reviewer,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', rowId);
-  
-  if (error) {
-    console.error('Error updating mapping row status:', error);
-    throw error;
-  }
-  
-  console.log('Successfully updated mapping row status');
+  const backendService = createAzureSqlBackendService();
+  await backendService.updateMappingRowStatus(rowId, status, reviewer);
 };
 
 const addMappingRowComment = async (
   rowId: string,
   comment: string
 ): Promise<void> => {
-  console.log('Adding comment to mapping row:', rowId);
-  
-  // Get current comments
-  const { data: currentRow, error: selectError } = await supabase
-    .from('mapping_rows')
-    .select('comments')
-    .eq('id', rowId)
-    .single();
-  
-  if (selectError) {
-    console.error('Error fetching current comments:', selectError);
-    throw selectError;
-  }
-  
-  const currentComments = currentRow.comments || [];
-  const updatedComments = [...currentComments, comment];
-  
-  const { error } = await supabase
-    .from('mapping_rows')
-    .update({ comments: updatedComments })
-    .eq('id', rowId);
-  
-  if (error) {
-    console.error('Error adding comment to mapping row:', error);
-    throw error;
-  }
-  
-  console.log('Successfully added comment to mapping row');
+  const backendService = createAzureSqlBackendService();
+  await backendService.addMappingRowComment(rowId, comment);
 };
 
-// Initialize function (no longer needed for Supabase)
+// Initialize function (no longer needed for Azure SQL)
 const initializeSampleData = (): void => {
-  console.log('Supabase database ready - sample data should be populated via SQL migrations');
+  console.log('Azure SQL database ready - sample data should be populated via backend API');
 };
 
 // Service object that groups all the functions
@@ -398,44 +162,23 @@ export const azureSqlService = {
   createMappingFile,
   upsertMappingColumn,
   createMappingRow: async (row: MappingRow): Promise<void> => {
-    // For standalone row creation, we'll create a temporary file
-    console.log('Creating standalone mapping row - this should be called with a proper file ID');
+    // For standalone row creation, we'll use the backend service
+    const backendService = createAzureSqlBackendService();
     
-    // Get or create a default mapping file
-    const { data: defaultFile, error: selectError } = await supabase
-      .from('mapping_files')
-      .select('id')
-      .eq('name', 'Default Mapping File')
-      .maybeSingle();
+    // Create a temporary mapping file for the row
+    const tempMappingFile: MappingFile = {
+      id: `temp-${Date.now()}`,
+      name: 'Temporary Mapping File',
+      description: 'Auto-created for standalone mapping',
+      sourceSystem: 'Various',
+      targetSystem: 'Various',
+      status: 'draft',
+      createdBy: 'system',
+      createdAt: new Date(),
+      rows: [row]
+    };
     
-    let fileId: string;
-    
-    if (!defaultFile) {
-      // Create default file
-      const { data: newFile, error: createError } = await supabase
-        .from('mapping_files')
-        .insert({
-          name: 'Default Mapping File',
-          description: 'Auto-created file for standalone mappings',
-          source_system: 'Various',
-          target_system: 'Various',
-          status: 'draft',
-          created_by: 'system',
-        })
-        .select()
-        .single();
-      
-      if (createError) {
-        console.error('Error creating default file:', createError);
-        throw createError;
-      }
-      
-      fileId = newFile.id;
-    } else {
-      fileId = defaultFile.id;
-    }
-    
-    return createMappingRow(fileId, row);
+    await backendService.saveMappingFile(tempMappingFile);
   },
   saveMappingFile,
   loadMappingFiles,

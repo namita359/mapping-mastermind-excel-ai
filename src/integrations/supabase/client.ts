@@ -1,7 +1,17 @@
 
-import { createClient } from '@supabase/supabase-js'
+// Supabase integration removed - using Azure SQL backend instead
+// This file is kept for backward compatibility but exports dummy objects
 
-const supabaseUrl = 'https://iqckwjkndvbftbivyatt.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxY2t3amtuZHZiZnRiaXZ5YXR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NTc0MjQsImV4cCI6MjA2NDEzMzQyNH0.VHTgPt6sU2ZgWkGlmp8_tqcO6u6EUy4m__RW5-sDYk0'
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = {
+  // Dummy object to prevent import errors
+  from: () => ({
+    select: () => Promise.resolve({ data: [], error: null }),
+    insert: () => Promise.resolve({ data: [], error: null }),
+    update: () => Promise.resolve({ data: [], error: null }),
+    delete: () => Promise.resolve({ data: [], error: null }),
+  }),
+  auth: {
+    getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+  }
+};

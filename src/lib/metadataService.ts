@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { createAzureSqlBackendService } from './azureSqlBackendService';
 
 export interface MalcodeMetadata {
   id: string;
@@ -45,43 +45,19 @@ export interface MetadataSearchResult {
   data_type?: string;
 }
 
-// Single metadata record from the denormalized table
-interface MetadataSingle {
-  id: string;
-  malcode: string;
-  malcode_description?: string;
-  table_name: string;
-  table_description?: string;
-  column_name: string;
-  column_description?: string;
-  data_type: string;
-  is_primary_key: boolean;
-  is_nullable: boolean;
-  default_value?: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-}
-
 class MetadataService {
+  private backendService = createAzureSqlBackendService();
+
   async searchMetadata(searchTerm: string): Promise<MetadataSearchResult[]> {
     try {
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .select('*')
-        .or(`column_name.ilike.%${searchTerm}%,column_description.ilike.%${searchTerm}%,malcode_description.ilike.%${searchTerm}%`)
-        .eq('is_active', true);
-
-      if (error) throw error;
-
-      return data?.map((item: MetadataSingle) => ({
-        malcode: item.malcode,
-        table_name: item.table_name,
-        column_name: item.column_name,
-        business_description: item.column_description || item.table_description || item.malcode_description,
-        data_type: item.data_type
-      })) || [];
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/search?term=${encodeURIComponent(searchTerm)}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to search metadata: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return data.results || [];
     } catch (error) {
       console.error('Error searching metadata:', error);
       throw error;
@@ -89,68 +65,74 @@ class MetadataService {
   }
 
   async createMalcodeMetadata(malcode: string, businessDescription: string, createdBy: string): Promise<MalcodeMetadata> {
-    // For the denormalized table, we don't create separate malcode records
-    // This is a placeholder that maintains the interface
-    return {
-      id: `malcode-${Date.now()}`,
-      malcode,
-      business_description: businessDescription,
-      created_by: createdBy,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      is_active: true
-    };
+    try {
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/malcodes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          malcode,
+          business_description: businessDescription,
+          created_by: createdBy
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create malcode: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating malcode metadata:', error);
+      throw error;
+    }
   }
 
   async createTableMetadata(malcodeId: string, tableName: string, businessDescription: string, createdBy: string): Promise<TableMetadata> {
-    // For the denormalized table, we don't create separate table records
-    // This is a placeholder that maintains the interface
-    return {
-      id: `table-${Date.now()}`,
-      malcode_id: malcodeId,
-      table_name: tableName,
-      business_description: businessDescription,
-      created_by: createdBy,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      is_active: true
-    };
+    try {
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/tables`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          malcode_id: malcodeId,
+          table_name: tableName,
+          business_description: businessDescription,
+          created_by: createdBy
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create table: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating table metadata:', error);
+      throw error;
+    }
   }
 
   async createColumnMetadata(tableId: string, columnData: Partial<ColumnMetadata>): Promise<ColumnMetadata> {
     try {
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .insert({
-          malcode: columnData.column_name?.split('_')[0] || 'UNKNOWN',
-          table_name: 'NEW_TABLE',
-          column_name: columnData.column_name || 'NEW_COLUMN',
-          data_type: columnData.data_type || 'string',
-          column_description: columnData.business_description,
-          is_primary_key: columnData.is_primary_key || false,
-          is_nullable: columnData.is_nullable !== false,
-          default_value: columnData.default_value,
-          created_by: columnData.created_by || 'user'
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/columns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          table_id: tableId,
+          ...columnData
         })
-        .select()
-        .single();
+      });
 
-      if (error) throw error;
-      
-      return {
-        id: data.id,
-        table_id: tableId,
-        column_name: data.column_name,
-        data_type: data.data_type,
-        business_description: data.column_description,
-        is_primary_key: data.is_primary_key,
-        is_nullable: data.is_nullable,
-        default_value: data.default_value,
-        created_by: data.created_by,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        is_active: data.is_active
-      };
+      if (!response.ok) {
+        throw new Error(`Failed to create column: ${response.statusText}`);
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Error creating column metadata:', error);
       throw error;
@@ -159,27 +141,17 @@ class MetadataService {
 
   async getMalcodeByName(malcode: string): Promise<MalcodeMetadata | null> {
     try {
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .select('malcode, malcode_description, created_by, created_at, updated_at, is_active')
-        .eq('malcode', malcode)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/malcodes/${encodeURIComponent(malcode)}`);
       
-      if (!data) return null;
+      if (response.status === 404) {
+        return null;
+      }
       
-      return {
-        id: `malcode-${malcode}`,
-        malcode: data.malcode,
-        business_description: data.malcode_description,
-        created_by: data.created_by,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        is_active: data.is_active
-      };
+      if (!response.ok) {
+        throw new Error(`Failed to get malcode: ${response.statusText}`);
+      }
+      
+      return await response.json();
     } catch (error) {
       console.error('Error getting malcode:', error);
       throw error;
@@ -188,28 +160,18 @@ class MetadataService {
 
   async getTableByMalcodeAndName(malcodeId: string, tableName: string): Promise<TableMetadata | null> {
     try {
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .select('table_name, table_description, created_by, created_at, updated_at, is_active')
-        .eq('table_name', tableName)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/tables?malcode_id=${encodeURIComponent(malcodeId)}&table_name=${encodeURIComponent(tableName)}`);
       
-      if (!data) return null;
+      if (response.status === 404) {
+        return null;
+      }
       
-      return {
-        id: `table-${tableName}`,
-        malcode_id: malcodeId,
-        table_name: data.table_name,
-        business_description: data.table_description,
-        created_by: data.created_by,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        is_active: data.is_active
-      };
+      if (!response.ok) {
+        throw new Error(`Failed to get table: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return data.tables?.[0] || null;
     } catch (error) {
       console.error('Error getting table:', error);
       throw error;
@@ -218,47 +180,19 @@ class MetadataService {
 
   async getAllMalcodes(): Promise<MalcodeMetadata[]> {
     try {
-      console.log('MetadataService.getAllMalcodes: Starting query...');
+      console.log('MetadataService.getAllMalcodes: Starting API call...');
       
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .select('malcode, malcode_description, created_by, created_at, updated_at, is_active')
-        .eq('is_active', true);
-
-      if (error) {
-        console.error('MetadataService.getAllMalcodes: Supabase error:', error);
-        throw error;
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/malcodes`);
+      
+      if (!response.ok) {
+        console.error('MetadataService.getAllMalcodes: API error:', response.statusText);
+        throw new Error(`Failed to get malcodes: ${response.statusText}`);
       }
       
+      const data = await response.json();
       console.log('MetadataService.getAllMalcodes: Received data:', data);
-      console.log('MetadataService.getAllMalcodes: Data length:', data?.length || 0);
       
-      if (!data || data.length === 0) {
-        console.log('MetadataService.getAllMalcodes: No data found');
-        return [];
-      }
-      
-      // Group by malcode to get unique malcodes
-      const malcodeMap = new Map<string, MalcodeMetadata>();
-      
-      data.forEach((row: any) => {
-        if (!malcodeMap.has(row.malcode)) {
-          malcodeMap.set(row.malcode, {
-            id: `malcode-${row.malcode}`,
-            malcode: row.malcode,
-            business_description: row.malcode_description,
-            created_by: row.created_by,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            is_active: row.is_active
-          });
-        }
-      });
-      
-      const uniqueMalcodes = Array.from(malcodeMap.values());
-      console.log('MetadataService.getAllMalcodes: Unique malcodes:', uniqueMalcodes);
-      
-      return uniqueMalcodes;
+      return data.malcodes || [];
     } catch (error) {
       console.error('MetadataService.getAllMalcodes: Error:', error);
       throw error;
@@ -267,36 +201,14 @@ class MetadataService {
 
   async getTablesByMalcode(malcodeId: string): Promise<TableMetadata[]> {
     try {
-      // Extract malcode from the ID (format: malcode-XXXX)
-      const malcode = malcodeId.replace('malcode-', '');
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/tables?malcode_id=${encodeURIComponent(malcodeId)}`);
       
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .select('table_name, table_description, created_by, created_at, updated_at, is_active')
-        .eq('malcode', malcode)
-        .eq('is_active', true);
-
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to get tables: ${response.statusText}`);
+      }
       
-      // Group by table_name to get unique tables
-      const tableMap = new Map<string, TableMetadata>();
-      
-      data?.forEach((row: any) => {
-        if (!tableMap.has(row.table_name)) {
-          tableMap.set(row.table_name, {
-            id: `table-${row.table_name}`,
-            malcode_id: malcodeId,
-            table_name: row.table_name,
-            business_description: row.table_description,
-            created_by: row.created_by,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            is_active: row.is_active
-          });
-        }
-      });
-      
-      return Array.from(tableMap.values());
+      const data = await response.json();
+      return data.tables || [];
     } catch (error) {
       console.error('Error getting tables:', error);
       throw error;
@@ -305,32 +217,14 @@ class MetadataService {
 
   async getColumnsByTable(tableId: string): Promise<ColumnMetadata[]> {
     try {
-      // Extract table name from the ID (format: table-XXXX)
-      const tableName = tableId.replace('table-', '');
+      const response = await fetch(`${this.backendService['baseUrl']}/api/metadata/columns?table_id=${encodeURIComponent(tableId)}`);
       
-      const { data, error } = await supabase
-        .from('metadata_single')
-        .select('*')
-        .eq('table_name', tableName)
-        .eq('is_active', true)
-        .order('column_name');
-
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`Failed to get columns: ${response.statusText}`);
+      }
       
-      return data?.map((row: MetadataSingle) => ({
-        id: row.id,
-        table_id: tableId,
-        column_name: row.column_name,
-        data_type: row.data_type,
-        business_description: row.column_description,
-        is_primary_key: row.is_primary_key,
-        is_nullable: row.is_nullable,
-        default_value: row.default_value,
-        created_by: row.created_by,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        is_active: row.is_active
-      })) || [];
+      const data = await response.json();
+      return data.columns || [];
     } catch (error) {
       console.error('Error getting columns:', error);
       throw error;
