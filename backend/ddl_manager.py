@@ -69,6 +69,16 @@ def create_tables():
         logger.info("Tables created successfully")
         return results
 
+def create_metadata_tables():
+    """Execute create_metadata_tables.sql script"""
+    sql_file_path = os.path.join("sql", "create_metadata_tables.sql")
+    sql_script = read_sql_file(sql_file_path)
+    
+    with get_db_connection() as conn:
+        results = execute_sql_script(conn, sql_script)
+        logger.info("Metadata tables created successfully")
+        return results
+
 def drop_tables():
     """Execute drop_tables.sql script"""
     sql_file_path = os.path.join("sql", "drop_tables.sql")

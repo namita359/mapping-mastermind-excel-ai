@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from ddl_manager import create_tables, drop_tables, verify_tables, execute_custom_sql
+from ddl_manager import create_tables, create_metadata_tables, drop_tables, verify_tables, execute_custom_sql
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ddl", tags=["ddl"])
@@ -31,6 +31,20 @@ async def create_database_tables():
         logger.error(f"Failed to create tables: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create tables: {str(e)}")
 
+@router.post("/create-metadata-tables", response_model=DDLResponse)
+async def create_metadata_database_tables():
+    """Create metadata tables using create_metadata_tables.sql"""
+    try:
+        results = create_metadata_tables()
+        return DDLResponse(
+            success=True,
+            message="Metadata tables created successfully",
+            results=results
+        )
+    except Exception as e:
+        logger.error(f"Failed to create metadata tables: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create metadata tables: {str(e)}")
+
 @router.post("/drop-tables", response_model=DDLResponse)
 async def drop_database_tables():
     """Drop all database tables using drop_tables.sql"""
@@ -55,7 +69,7 @@ async def verify_database_tables():
             message="Table verification completed",
             results=results
         )
-    except Exception in e:
+    except Exception as e:
         logger.error(f"Failed to verify tables: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to verify tables: {str(e)}")
 
