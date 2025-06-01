@@ -33,6 +33,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MappingFile, MappingRow, SourceType, TargetType } from "@/lib/types";
 import { generateUniqueId } from "@/lib/utils";
+import { useMetadataDropdowns } from "@/hooks/useMetadataDropdowns";
 
 interface AddMappingFormProps {
   mappingFile: MappingFile;
@@ -42,74 +43,101 @@ interface AddMappingFormProps {
 }
 
 const mappingSchema = z.object({
-  sourceMalcode: z.string().min(1, "Source malcode is required"),
-  sourceTable: z.string().min(1, "Source table is required"),
-  sourceColumn: z.string().min(1, "Source column is required"),
-  sourceDataType: z.string().min(1, "Source data type is required"),
-  sourceMalcodeDescription: z.string().optional(),
-  sourceTableDescription: z.string().optional(),
-  sourceColumnDescription: z.string().optional(),
-  targetMalcode: z.string().min(1, "Target malcode is required"),
-  targetTable: z.string().min(1, "Target table is required"),
-  targetColumn: z.string().min(1, "Target column is required"),
-  targetDataType: z.string().min(1, "Target data type is required"),
+  sourceMalcodeId: z.string().min(1, "Source malcode is required"),
+  sourceTableId: z.string().min(1, "Source table is required"),
+  sourceColumnId: z.string().min(1, "Source column is required"),
+  targetMalcodeId: z.string().min(1, "Target malcode is required"),
+  targetTableId: z.string().min(1, "Target table is required"),
+  targetColumnId: z.string().min(1, "Target column is required"),
   targetType: z.enum(["CZ_ADLS", "SYNAPSE_TABLE"]),
-  targetMalcodeDescription: z.string().optional(),
-  targetTableDescription: z.string().optional(),
-  targetColumnDescription: z.string().optional(),
   transformation: z.string().optional(),
   join: z.string().optional(),
 });
 
 type MappingFormValues = z.infer<typeof mappingSchema>;
 
-const dataTypes = [
-  "VARCHAR", "CHAR", "TEXT",
-  "INTEGER", "BIGINT", "SMALLINT", 
-  "DECIMAL", "NUMERIC", "FLOAT", "DOUBLE", 
-  "DATE", "TIMESTAMP", "TIME",
-  "BOOLEAN", "BINARY", "BLOB",
-  "JSON", "XML", "UUID"
-];
-
 export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: AddMappingFormProps) {
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [existingMapping, setExistingMapping] = useState<MappingRow | null>(null);
   const [showBusinessMetadata, setShowBusinessMetadata] = useState(false);
 
+  const {
+    malcodes,
+    sourceTables,
+    targetTables,
+    sourceColumns,
+    targetColumns,
+    loading,
+    error,
+    loadTablesForMalcode,
+    loadColumnsForTable,
+    getMalcodeById,
+    getTableById,
+    getColumnById,
+  } = useMetadataDropdowns();
+
   const form = useForm<MappingFormValues>({
     resolver: zodResolver(mappingSchema),
     defaultValues: {
-      sourceMalcode: "",
-      sourceTable: "",
-      sourceColumn: "",
-      sourceDataType: "VARCHAR",
-      sourceMalcodeDescription: "",
-      sourceTableDescription: "",
-      sourceColumnDescription: "",
-      targetMalcode: "",
-      targetTable: "",
-      targetColumn: "",
-      targetDataType: "VARCHAR",
+      sourceMalcodeId: "",
+      sourceTableId: "",
+      sourceColumnId: "",
+      targetMalcodeId: "",
+      targetTableId: "",
+      targetColumnId: "",
       targetType: "CZ_ADLS",
-      targetMalcodeDescription: "",
-      targetTableDescription: "",
-      targetColumnDescription: "",
       transformation: "",
       join: "",
     },
   });
 
   const checkDuplicateMapping = (data: MappingFormValues): MappingRow | null => {
+    const sourceMalcode = getMalcodeById(data.sourceMalcodeId);
+    const sourceTable = getTableById(data.sourceTableId, true);
+    const sourceColumn = getColumnById(data.sourceColumnId, true);
+    const targetMalcode = getMalcodeById(data.targetMalcodeId);
+    const targetTable = getTableById(data.targetTableId, false);
+    const targetColumn = getColumnById(data.targetColumnId, false);
+
+    if (!sourceMalcode || !sourceTable || !sourceColumn || !targetMalcode || !targetTable || !targetColumn) {
+      return null;
+    }
+
     return mappingFile.rows.find(
       (row) => 
-        row.sourceColumn.malcode.toLowerCase() === data.sourceMalcode.toLowerCase() &&
-        row.sourceColumn.table.toLowerCase() === data.sourceTable.toLowerCase() &&
-        row.sourceColumn.column.toLowerCase() === data.sourceColumn.toLowerCase() &&
-        row.targetColumn.malcode.toLowerCase() === data.targetMalcode.toLowerCase() &&
-        row.targetColumn.table.toLowerCase() === data.targetTable.toLowerCase() &&
-        row.targetColumn.column.toLowerCase() === data.targetColumn.toLowerCase()
+        row.sourceColumn.malcode.toLowerCase() === sourceMalcode.malcode.toLowerCase() &&
+        row.sourceColumn.table.toLowerCase() === sourceTable.table_name.toLowerCase() &&
+        row.sourceColumn.column.toLowerCase() === sourceColumn.column_name.toLowerCase() &&
+        row.targetColumn.malcode.toLowerCase() === targetMalcode.malcode.toLowerCase() &&
+        row.targetColumn.table.toLowerCase() === targetTable.table_name.toLowerCase() &&
+        row.targetColumn.column.toLowerCase() === targetColumn.column_name.toLowerCase()
     ) || null;
+  };
+
+  const handleSourceMalcodeChange = (malcodeId: string) => {
+    form.setValue("sourceMalcodeId", malcodeId);
+    form.setValue("sourceTableId", "");
+    form.setValue("sourceColumnId", "");
+    loadTablesForMalcode(malcodeId, true);
+  };
+
+  const handleTargetMalcodeChange = (malcodeId: string) => {
+    form.setValue("targetMalcodeId", malcodeId);
+    form.setValue("targetTableId", "");
+    form.setValue("targetColumnId", "");
+    loadTablesForMalcode(malcodeId, false);
+  };
+
+  const handleSourceTableChange = (tableId: string) => {
+    form.setValue("sourceTableId", tableId);
+    form.setValue("sourceColumnId", "");
+    loadColumnsForTable(tableId, true);
+  };
+
+  const handleTargetTableChange = (tableId: string) => {
+    form.setValue("targetTableId", tableId);
+    form.setValue("targetColumnId", "");
+    loadColumnsForTable(tableId, false);
   };
 
   const onSubmit = (data: MappingFormValues) => {
@@ -120,37 +148,48 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
       return;
     }
 
+    const sourceMalcode = getMalcodeById(data.sourceMalcodeId);
+    const sourceTable = getTableById(data.sourceTableId, true);
+    const sourceColumn = getColumnById(data.sourceColumnId, true);
+    const targetMalcode = getMalcodeById(data.targetMalcodeId);
+    const targetTable = getTableById(data.targetTableId, false);
+    const targetColumn = getColumnById(data.targetColumnId, false);
+
+    if (!sourceMalcode || !sourceTable || !sourceColumn || !targetMalcode || !targetTable || !targetColumn) {
+      return;
+    }
+
     const newMapping: MappingRow = {
       id: generateUniqueId(),
       sourceColumn: {
         id: generateUniqueId(),
-        malcode: data.sourceMalcode,
-        table: data.sourceTable,
-        column: data.sourceColumn,
-        dataType: data.sourceDataType,
+        malcode: sourceMalcode.malcode,
+        table: sourceTable.table_name,
+        column: sourceColumn.column_name,
+        dataType: sourceColumn.data_type || "VARCHAR",
         sourceType: "SRZ_ADLS" as SourceType,
         businessMetadata: {
-          malcodeDescription: data.sourceMalcodeDescription || undefined,
-          tableDescription: data.sourceTableDescription || undefined,
-          columnDescription: data.sourceColumnDescription || undefined,
+          malcodeDescription: sourceMalcode.business_description,
+          tableDescription: sourceTable.business_description,
+          columnDescription: sourceColumn.business_description,
         },
-        isPrimaryKey: false,
-        isNullable: true,
+        isPrimaryKey: sourceColumn.is_primary_key || false,
+        isNullable: sourceColumn.is_nullable || true,
       },
       targetColumn: {
         id: generateUniqueId(),
-        malcode: data.targetMalcode,
-        table: data.targetTable,
-        column: data.targetColumn,
-        dataType: data.targetDataType,
+        malcode: targetMalcode.malcode,
+        table: targetTable.table_name,
+        column: targetColumn.column_name,
+        dataType: targetColumn.data_type || "VARCHAR",
         targetType: data.targetType,
         businessMetadata: {
-          malcodeDescription: data.targetMalcodeDescription || undefined,
-          tableDescription: data.targetTableDescription || undefined,
-          columnDescription: data.targetColumnDescription || undefined,
+          malcodeDescription: targetMalcode.business_description,
+          tableDescription: targetTable.business_description,
+          columnDescription: targetColumn.business_description,
         },
-        isPrimaryKey: false,
-        isNullable: true,
+        isPrimaryKey: targetColumn.is_primary_key || false,
+        isNullable: targetColumn.is_nullable || true,
       },
       transformation: data.transformation || undefined,
       join: data.join || undefined,
@@ -173,7 +212,7 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
         <DialogHeader>
           <DialogTitle>Add New Source-Target Mapping</DialogTitle>
           <DialogDescription>
-            Create a new mapping between source (SRZ ADLS) and target (CZ ADLS or Synapse Table) columns.
+            Create a new mapping between source (SRZ ADLS) and target (CZ ADLS or Synapse Table) columns using metadata catalog.
           </DialogDescription>
         </DialogHeader>
 
@@ -216,13 +255,45 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                   
                   <FormField
                     control={form.control}
-                    name="sourceMalcode"
+                    name="sourceMalcodeId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Malcode*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., CRM_001" {...field} />
-                        </FormControl>
+                        <Select 
+                          onValueChange={handleSourceMalcodeChange} 
+                          value={field.value}
+                          disabled={loading || !malcodes || malcodes.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
+                              <SelectValue placeholder={
+                                loading ? "Loading..." : 
+                                !malcodes || malcodes.length === 0 ? "No malcodes available" : 
+                                "Select source malcode"
+                              } />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
+                            {malcodes && malcodes.length > 0 ? (
+                              malcodes.map((malcode) => (
+                                <SelectItem key={malcode.id} value={malcode.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{malcode.malcode}</span>
+                                    {malcode.business_description && (
+                                      <span className="text-xs text-gray-500">
+                                        {malcode.business_description}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>
+                                No malcodes found
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -230,13 +301,45 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
 
                   <FormField
                     control={form.control}
-                    name="sourceTable"
+                    name="sourceTableId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Table*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., customers" {...field} />
-                        </FormControl>
+                        <Select 
+                          onValueChange={handleSourceTableChange} 
+                          value={field.value}
+                          disabled={!form.watch("sourceMalcodeId") || sourceTables.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
+                              <SelectValue placeholder={
+                                !form.watch("sourceMalcodeId") ? "Select malcode first" : 
+                                sourceTables.length === 0 ? "No tables available" : 
+                                "Select source table"
+                              } />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
+                            {sourceTables.length > 0 ? (
+                              sourceTables.map((table) => (
+                                <SelectItem key={table.id} value={table.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{table.table_name}</span>
+                                    {table.business_description && (
+                                      <span className="text-xs text-gray-500">
+                                        {table.business_description}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>
+                                No tables found
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -244,34 +347,42 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
 
                   <FormField
                     control={form.control}
-                    name="sourceColumn"
+                    name="sourceColumnId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Column*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., customer_id" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sourceDataType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data Type*</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={!form.watch("sourceTableId") || sourceColumns.length === 0}
+                        >
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select data type" />
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
+                              <SelectValue placeholder={
+                                !form.watch("sourceTableId") ? "Select table first" : 
+                                sourceColumns.length === 0 ? "No columns available" : 
+                                "Select source column"
+                              } />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
-                            {dataTypes.map((type) => (
-                              <SelectItem key={type} value={type}>{type}</SelectItem>
-                            ))}
+                          <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
+                            {sourceColumns.length > 0 ? (
+                              sourceColumns.map((column) => (
+                                <SelectItem key={column.id} value={column.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{column.column_name}</span>
+                                    <span className="text-xs text-gray-500">
+                                      Type: {column.data_type}
+                                      {column.business_description && ` - ${column.business_description}`}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>
+                                No columns found
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -282,48 +393,35 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                   {showBusinessMetadata && (
                     <div className="space-y-3 p-3 bg-blue-50 rounded">
                       <h4 className="font-medium text-sm">Business Metadata</h4>
-                      
-                      <FormField
-                        control={form.control}
-                        name="sourceMalcodeDescription"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Malcode Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Business description of the malcode..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="sourceTableDescription"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Table Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Business description of the table..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="sourceColumnDescription"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Column Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Business description of the column..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {form.watch("sourceColumnId") && (
+                        <div className="text-sm space-y-2">
+                          {(() => {
+                            const sourceColumn = getColumnById(form.watch("sourceColumnId"), true);
+                            const sourceTable = getTableById(form.watch("sourceTableId"), true);
+                            const sourceMalcode = getMalcodeById(form.watch("sourceMalcodeId"));
+                            
+                            return (
+                              <>
+                                {sourceMalcode?.business_description && (
+                                  <div>
+                                    <strong>Malcode:</strong> {sourceMalcode.business_description}
+                                  </div>
+                                )}
+                                {sourceTable?.business_description && (
+                                  <div>
+                                    <strong>Table:</strong> {sourceTable.business_description}
+                                  </div>
+                                )}
+                                {sourceColumn?.business_description && (
+                                  <div>
+                                    <strong>Column:</strong> {sourceColumn.business_description}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -340,11 +438,11 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                         <FormLabel>Target Type*</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
                               <SelectValue placeholder="Select target type" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="bg-white border shadow-lg z-[100]">
                             <SelectItem value="CZ_ADLS">CZ ADLS (Curated Zone)</SelectItem>
                             <SelectItem value="SYNAPSE_TABLE">Synapse Table</SelectItem>
                           </SelectContent>
@@ -356,13 +454,45 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
 
                   <FormField
                     control={form.control}
-                    name="targetMalcode"
+                    name="targetMalcodeId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Malcode*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., DW_001" {...field} />
-                        </FormControl>
+                        <Select 
+                          onValueChange={handleTargetMalcodeChange} 
+                          value={field.value}
+                          disabled={loading || !malcodes || malcodes.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
+                              <SelectValue placeholder={
+                                loading ? "Loading..." : 
+                                !malcodes || malcodes.length === 0 ? "No malcodes available" : 
+                                "Select target malcode"
+                              } />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
+                            {malcodes && malcodes.length > 0 ? (
+                              malcodes.map((malcode) => (
+                                <SelectItem key={malcode.id} value={malcode.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{malcode.malcode}</span>
+                                    {malcode.business_description && (
+                                      <span className="text-xs text-gray-500">
+                                        {malcode.business_description}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>
+                                No malcodes found
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -370,13 +500,45 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
 
                   <FormField
                     control={form.control}
-                    name="targetTable"
+                    name="targetTableId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Table*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., dim_customer" {...field} />
-                        </FormControl>
+                        <Select 
+                          onValueChange={handleTargetTableChange} 
+                          value={field.value}
+                          disabled={!form.watch("targetMalcodeId") || targetTables.length === 0}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
+                              <SelectValue placeholder={
+                                !form.watch("targetMalcodeId") ? "Select malcode first" : 
+                                targetTables.length === 0 ? "No tables available" : 
+                                "Select target table"
+                              } />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
+                            {targetTables.length > 0 ? (
+                              targetTables.map((table) => (
+                                <SelectItem key={table.id} value={table.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{table.table_name}</span>
+                                    {table.business_description && (
+                                      <span className="text-xs text-gray-500">
+                                        {table.business_description}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>
+                                No tables found
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -384,34 +546,42 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
 
                   <FormField
                     control={form.control}
-                    name="targetColumn"
+                    name="targetColumnId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Column*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., customer_key" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="targetDataType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data Type*</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          value={field.value}
+                          disabled={!form.watch("targetTableId") || targetColumns.length === 0}
+                        >
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select data type" />
+                            <SelectTrigger className="bg-white border-2 border-gray-300">
+                              <SelectValue placeholder={
+                                !form.watch("targetTableId") ? "Select table first" : 
+                                targetColumns.length === 0 ? "No columns available" : 
+                                "Select target column"
+                              } />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
-                            {dataTypes.map((type) => (
-                              <SelectItem key={type} value={type}>{type}</SelectItem>
-                            ))}
+                          <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
+                            {targetColumns.length > 0 ? (
+                              targetColumns.map((column) => (
+                                <SelectItem key={column.id} value={column.id}>
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{column.column_name}</span>
+                                    <span className="text-xs text-gray-500">
+                                      Type: {column.data_type}
+                                      {column.business_description && ` - ${column.business_description}`}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-data" disabled>
+                                No columns found
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -422,48 +592,35 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                   {showBusinessMetadata && (
                     <div className="space-y-3 p-3 bg-green-50 rounded">
                       <h4 className="font-medium text-sm">Business Metadata</h4>
-                      
-                      <FormField
-                        control={form.control}
-                        name="targetMalcodeDescription"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Malcode Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Business description of the malcode..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="targetTableDescription"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Table Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Business description of the table..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="targetColumnDescription"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Column Description</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="Business description of the column..." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {form.watch("targetColumnId") && (
+                        <div className="text-sm space-y-2">
+                          {(() => {
+                            const targetColumn = getColumnById(form.watch("targetColumnId"), false);
+                            const targetTable = getTableById(form.watch("targetTableId"), false);
+                            const targetMalcode = getMalcodeById(form.watch("targetMalcodeId"));
+                            
+                            return (
+                              <>
+                                {targetMalcode?.business_description && (
+                                  <div>
+                                    <strong>Malcode:</strong> {targetMalcode.business_description}
+                                  </div>
+                                )}
+                                {targetTable?.business_description && (
+                                  <div>
+                                    <strong>Table:</strong> {targetTable.business_description}
+                                  </div>
+                                )}
+                                {targetColumn?.business_description && (
+                                  <div>
+                                    <strong>Column:</strong> {targetColumn.business_description}
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -520,7 +677,7 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                 <Button type="button" variant="outline" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isDuplicate}>
+                <Button type="submit" disabled={isDuplicate || loading}>
                   <Check className="mr-2 h-4 w-4" /> Add Mapping
                 </Button>
               </div>
