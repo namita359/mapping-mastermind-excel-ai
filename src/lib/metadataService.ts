@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface MalcodeMetadata {
@@ -44,34 +45,41 @@ export interface MetadataSearchResult {
   data_type?: string;
 }
 
+// Single metadata record from the denormalized table
+interface MetadataSingle {
+  id: string;
+  malcode: string;
+  malcode_description?: string;
+  table_name: string;
+  table_description?: string;
+  column_name: string;
+  column_description?: string;
+  data_type: string;
+  is_primary_key: boolean;
+  is_nullable: boolean;
+  default_value?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
+
 class MetadataService {
   async searchMetadata(searchTerm: string): Promise<MetadataSearchResult[]> {
     try {
       const { data, error } = await supabase
-        .from('column_metadata')
-        .select(`
-          column_name,
-          data_type,
-          business_description,
-          table_metadata!inner(
-            table_name,
-            business_description,
-            malcode_metadata!inner(
-              malcode,
-              business_description
-            )
-          )
-        `)
-        .or(`column_name.ilike.%${searchTerm}%,business_description.ilike.%${searchTerm}%`)
+        .from('metadata_single')
+        .select('*')
+        .or(`column_name.ilike.%${searchTerm}%,column_description.ilike.%${searchTerm}%,malcode_description.ilike.%${searchTerm}%`)
         .eq('is_active', true);
 
       if (error) throw error;
 
-      return data?.map((item: any) => ({
-        malcode: item.table_metadata.malcode_metadata.malcode,
-        table_name: item.table_metadata.table_name,
+      return data?.map((item: MetadataSingle) => ({
+        malcode: item.malcode,
+        table_name: item.table_name,
         column_name: item.column_name,
-        business_description: item.business_description || item.table_metadata.business_description,
+        business_description: item.column_description || item.table_description || item.malcode_description,
         data_type: item.data_type
       })) || [];
     } catch (error) {
@@ -81,59 +89,68 @@ class MetadataService {
   }
 
   async createMalcodeMetadata(malcode: string, businessDescription: string, createdBy: string): Promise<MalcodeMetadata> {
-    try {
-      const { data, error } = await supabase
-        .from('malcode_metadata')
-        .insert({
-          malcode,
-          business_description: businessDescription,
-          created_by: createdBy
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error creating malcode metadata:', error);
-      throw error;
-    }
+    // For the denormalized table, we don't create separate malcode records
+    // This is a placeholder that maintains the interface
+    return {
+      id: `malcode-${Date.now()}`,
+      malcode,
+      business_description: businessDescription,
+      created_by: createdBy,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_active: true
+    };
   }
 
   async createTableMetadata(malcodeId: string, tableName: string, businessDescription: string, createdBy: string): Promise<TableMetadata> {
-    try {
-      const { data, error } = await supabase
-        .from('table_metadata')
-        .insert({
-          malcode_id: malcodeId,
-          table_name: tableName,
-          business_description: businessDescription,
-          created_by: createdBy
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error creating table metadata:', error);
-      throw error;
-    }
+    // For the denormalized table, we don't create separate table records
+    // This is a placeholder that maintains the interface
+    return {
+      id: `table-${Date.now()}`,
+      malcode_id: malcodeId,
+      table_name: tableName,
+      business_description: businessDescription,
+      created_by: createdBy,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      is_active: true
+    };
   }
 
   async createColumnMetadata(tableId: string, columnData: Partial<ColumnMetadata>): Promise<ColumnMetadata> {
     try {
       const { data, error } = await supabase
-        .from('column_metadata')
+        .from('metadata_single')
         .insert({
-          table_id: tableId,
-          ...columnData
+          malcode: columnData.column_name?.split('_')[0] || 'UNKNOWN',
+          table_name: 'NEW_TABLE',
+          column_name: columnData.column_name || 'NEW_COLUMN',
+          data_type: columnData.data_type || 'string',
+          column_description: columnData.business_description,
+          is_primary_key: columnData.is_primary_key || false,
+          is_nullable: columnData.is_nullable !== false,
+          default_value: columnData.default_value,
+          created_by: columnData.created_by || 'user'
         })
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      
+      return {
+        id: data.id,
+        table_id: tableId,
+        column_name: data.column_name,
+        data_type: data.data_type,
+        business_description: data.column_description,
+        is_primary_key: data.is_primary_key,
+        is_nullable: data.is_nullable,
+        default_value: data.default_value,
+        created_by: data.created_by,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        is_active: data.is_active
+      };
     } catch (error) {
       console.error('Error creating column metadata:', error);
       throw error;
@@ -143,14 +160,26 @@ class MetadataService {
   async getMalcodeByName(malcode: string): Promise<MalcodeMetadata | null> {
     try {
       const { data, error } = await supabase
-        .from('malcode_metadata')
-        .select('*')
+        .from('metadata_single')
+        .select('malcode, malcode_description, created_by, created_at, updated_at, is_active')
         .eq('malcode', malcode)
         .eq('is_active', true)
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      
+      if (!data) return null;
+      
+      return {
+        id: `malcode-${malcode}`,
+        malcode: data.malcode,
+        business_description: data.malcode_description,
+        created_by: data.created_by,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        is_active: data.is_active
+      };
     } catch (error) {
       console.error('Error getting malcode:', error);
       throw error;
@@ -160,15 +189,27 @@ class MetadataService {
   async getTableByMalcodeAndName(malcodeId: string, tableName: string): Promise<TableMetadata | null> {
     try {
       const { data, error } = await supabase
-        .from('table_metadata')
-        .select('*')
-        .eq('malcode_id', malcodeId)
+        .from('metadata_single')
+        .select('table_name, table_description, created_by, created_at, updated_at, is_active')
         .eq('table_name', tableName)
         .eq('is_active', true)
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      
+      if (!data) return null;
+      
+      return {
+        id: `table-${tableName}`,
+        malcode_id: malcodeId,
+        table_name: data.table_name,
+        business_description: data.table_description,
+        created_by: data.created_by,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        is_active: data.is_active
+      };
     } catch (error) {
       console.error('Error getting table:', error);
       throw error;
@@ -180,10 +221,9 @@ class MetadataService {
       console.log('MetadataService.getAllMalcodes: Starting query...');
       
       const { data, error } = await supabase
-        .from('malcode_metadata')
-        .select('*')
-        .eq('is_active', true)
-        .order('malcode');
+        .from('metadata_single')
+        .select('malcode, malcode_description, created_by, created_at, updated_at, is_active')
+        .eq('is_active', true);
 
       if (error) {
         console.error('MetadataService.getAllMalcodes: Supabase error:', error);
@@ -193,115 +233,70 @@ class MetadataService {
       console.log('MetadataService.getAllMalcodes: Received data:', data);
       console.log('MetadataService.getAllMalcodes: Data length:', data?.length || 0);
       
-      // If no data found, let's try to create some sample data
       if (!data || data.length === 0) {
-        console.log('MetadataService.getAllMalcodes: No data found, creating sample data...');
-        await this.createSampleData();
-        
-        // Try again after creating sample data
-        const { data: retryData, error: retryError } = await supabase
-          .from('malcode_metadata')
-          .select('*')
-          .eq('is_active', true)
-          .order('malcode');
-          
-        if (retryError) {
-          console.error('MetadataService.getAllMalcodes: Retry error:', retryError);
-          throw retryError;
-        }
-        
-        console.log('MetadataService.getAllMalcodes: Retry data:', retryData);
-        return retryData || [];
+        console.log('MetadataService.getAllMalcodes: No data found');
+        return [];
       }
       
-      return data || [];
+      // Group by malcode to get unique malcodes
+      const malcodeMap = new Map<string, MalcodeMetadata>();
+      
+      data.forEach((row: any) => {
+        if (!malcodeMap.has(row.malcode)) {
+          malcodeMap.set(row.malcode, {
+            id: `malcode-${row.malcode}`,
+            malcode: row.malcode,
+            business_description: row.malcode_description,
+            created_by: row.created_by,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            is_active: row.is_active
+          });
+        }
+      });
+      
+      const uniqueMalcodes = Array.from(malcodeMap.values());
+      console.log('MetadataService.getAllMalcodes: Unique malcodes:', uniqueMalcodes);
+      
+      return uniqueMalcodes;
     } catch (error) {
       console.error('MetadataService.getAllMalcodes: Error:', error);
       throw error;
     }
   }
 
-  private async createSampleData(): Promise<void> {
-    try {
-      console.log('MetadataService.createSampleData: Creating sample malcodes...');
-      
-      const sampleMalcodes = [
-        { malcode: 'CUST', business_description: 'Customer data and information', created_by: 'system' },
-        { malcode: 'PROD', business_description: 'Product catalog and inventory', created_by: 'system' },
-        { malcode: 'ORD', business_description: 'Order processing and management', created_by: 'system' },
-        { malcode: 'FIN', business_description: 'Financial transactions and accounting', created_by: 'system' },
-        { malcode: 'HR', business_description: 'Human resources and employee data', created_by: 'system' }
-      ];
-
-      const { data: malcodeData, error: malcodeError } = await supabase
-        .from('malcode_metadata')
-        .insert(sampleMalcodes)
-        .select();
-
-      if (malcodeError) {
-        console.error('MetadataService.createSampleData: Error creating malcodes:', malcodeError);
-        return; // Don't throw, just log and continue
-      }
-
-      console.log('MetadataService.createSampleData: Created malcodes:', malcodeData);
-
-      // Create sample tables for each malcode
-      if (malcodeData && malcodeData.length > 0) {
-        for (const malcode of malcodeData) {
-          const sampleTables = [
-            { malcode_id: malcode.id, table_name: `${malcode.malcode}_MAIN`, business_description: `Main ${malcode.malcode.toLowerCase()} table`, created_by: 'system' },
-            { malcode_id: malcode.id, table_name: `${malcode.malcode}_DETAILS`, business_description: `Details for ${malcode.malcode.toLowerCase()}`, created_by: 'system' }
-          ];
-
-          const { data: tableData, error: tableError } = await supabase
-            .from('table_metadata')
-            .insert(sampleTables)
-            .select();
-
-          if (tableError) {
-            console.error('MetadataService.createSampleData: Error creating tables:', tableError);
-            continue;
-          }
-
-          // Create sample columns for each table
-          if (tableData && tableData.length > 0) {
-            for (const table of tableData) {
-              const sampleColumns = [
-                { table_id: table.id, column_name: 'ID', data_type: 'integer', business_description: 'Primary key', is_primary_key: true, is_nullable: false, created_by: 'system' },
-                { table_id: table.id, column_name: 'NAME', data_type: 'string', business_description: 'Name field', created_by: 'system' },
-                { table_id: table.id, column_name: 'CREATED_DATE', data_type: 'date', business_description: 'Creation date', created_by: 'system' }
-              ];
-
-              const { error: columnError } = await supabase
-                .from('column_metadata')
-                .insert(sampleColumns);
-
-              if (columnError) {
-                console.error('MetadataService.createSampleData: Error creating columns:', columnError);
-              }
-            }
-          }
-        }
-      }
-
-      console.log('MetadataService.createSampleData: Sample data creation completed');
-    } catch (error) {
-      console.error('MetadataService.createSampleData: Error:', error);
-      // Don't throw, just log the error
-    }
-  }
-
   async getTablesByMalcode(malcodeId: string): Promise<TableMetadata[]> {
     try {
+      // Extract malcode from the ID (format: malcode-XXXX)
+      const malcode = malcodeId.replace('malcode-', '');
+      
       const { data, error } = await supabase
-        .from('table_metadata')
-        .select('*')
-        .eq('malcode_id', malcodeId)
-        .eq('is_active', true)
-        .order('table_name');
+        .from('metadata_single')
+        .select('table_name, table_description, created_by, created_at, updated_at, is_active')
+        .eq('malcode', malcode)
+        .eq('is_active', true);
 
       if (error) throw error;
-      return data || [];
+      
+      // Group by table_name to get unique tables
+      const tableMap = new Map<string, TableMetadata>();
+      
+      data?.forEach((row: any) => {
+        if (!tableMap.has(row.table_name)) {
+          tableMap.set(row.table_name, {
+            id: `table-${row.table_name}`,
+            malcode_id: malcodeId,
+            table_name: row.table_name,
+            business_description: row.table_description,
+            created_by: row.created_by,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            is_active: row.is_active
+          });
+        }
+      });
+      
+      return Array.from(tableMap.values());
     } catch (error) {
       console.error('Error getting tables:', error);
       throw error;
@@ -310,15 +305,32 @@ class MetadataService {
 
   async getColumnsByTable(tableId: string): Promise<ColumnMetadata[]> {
     try {
+      // Extract table name from the ID (format: table-XXXX)
+      const tableName = tableId.replace('table-', '');
+      
       const { data, error } = await supabase
-        .from('column_metadata')
+        .from('metadata_single')
         .select('*')
-        .eq('table_id', tableId)
+        .eq('table_name', tableName)
         .eq('is_active', true)
         .order('column_name');
 
       if (error) throw error;
-      return data || [];
+      
+      return data?.map((row: MetadataSingle) => ({
+        id: row.id,
+        table_id: tableId,
+        column_name: row.column_name,
+        data_type: row.data_type,
+        business_description: row.column_description,
+        is_primary_key: row.is_primary_key,
+        is_nullable: row.is_nullable,
+        default_value: row.default_value,
+        created_by: row.created_by,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        is_active: row.is_active
+      })) || [];
     } catch (error) {
       console.error('Error getting columns:', error);
       throw error;
