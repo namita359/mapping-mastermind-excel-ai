@@ -36,6 +36,238 @@ def get_db_connection():
             connection.close()
             logger.info("Database connection closed")
 
+# ... keep existing code (save_mapping_file_to_split_tables, insert_metadata_if_not_exists, load_mapping_files_from_split_tables, update_mapping_row_status_split_tables, add_mapping_row_comment_split_tables)
+
+def search_metadata_split_tables(conn, search_term):
+    """Search metadata in split table structure"""
+    cursor = conn.cursor()
+    
+    try:
+        search_pattern = f"%{search_term}%"
+        cursor.execute("""
+            SELECT 
+                malcode, table_name, column_name, data_type,
+                malcode_description, table_description, column_description
+            FROM metadata_catalog
+            WHERE is_active = 1 AND (
+                malcode LIKE ? OR
+                table_name LIKE ? OR
+                column_name LIKE ? OR
+                malcode_description LIKE ? OR
+                table_description LIKE ? OR
+                column_description LIKE ?
+            )
+            ORDER BY malcode, table_name, column_name
+        """, (search_pattern, search_pattern, search_pattern, 
+              search_pattern, search_pattern, search_pattern))
+        
+        results = []
+        for row in cursor.fetchall():
+            results.append({
+                'malcode': row[0],
+                'table_name': row[1],
+                'column_name': row[2],
+                'data_type': row[3],
+                'business_description': row[6] or row[5] or row[4]
+            })
+        
+        logger.info(f"Found {len(results)} metadata search results")
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error searching metadata: {str(e)}")
+        raise Exception(f"Error searching metadata: {str(e)}")
+
+def get_all_malcodes_split_tables(conn):
+    """Get all malcodes from split table structure"""
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT DISTINCT 
+                malcode, malcode_description,
+                MIN(created_at) as created_at,
+                MAX(updated_at) as updated_at
+            FROM metadata_catalog
+            WHERE is_active = 1
+            GROUP BY malcode, malcode_description
+            ORDER BY malcode
+        """)
+        
+        malcodes = []
+        for row in cursor.fetchall():
+            malcodes.append({
+                'id': f"malcode_{hash(row[0])}",
+                'malcode': row[0],
+                'business_description': row[1],
+                'created_at': row[2],
+                'updated_at': row[3],
+                'is_active': True
+            })
+        
+        logger.info(f"Retrieved {len(malcodes)} malcodes")
+        return malcodes
+        
+    except Exception as e:
+        logger.error(f"Error getting malcodes: {str(e)}")
+        raise Exception(f"Error getting malcodes: {str(e)}")
+
+def get_tables_by_malcode_split_tables(conn, malcode):
+    """Get tables by malcode from split table structure"""
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT DISTINCT 
+                table_name, table_description,
+                MIN(created_at) as created_at,
+                MAX(updated_at) as updated_at
+            FROM metadata_catalog
+            WHERE malcode = ? AND is_active = 1
+            GROUP BY table_name, table_description
+            ORDER BY table_name
+        """, (malcode,))
+        
+        tables = []
+        for row in cursor.fetchall():
+            tables.append({
+                'id': f"table_{hash(f'{malcode}_{row[0]}')}",
+                'table_name': row[0],
+                'business_description': row[1],
+                'created_at': row[2],
+                'updated_at': row[3],
+                'is_active': True
+            })
+        
+        logger.info(f"Retrieved {len(tables)} tables for malcode {malcode}")
+        return tables
+        
+    except Exception as e:
+        logger.error(f"Error getting tables: {str(e)}")
+        raise Exception(f"Error getting tables: {str(e)}")
+
+def get_columns_by_table_split_tables(conn, malcode, table_name):
+    """Get columns by table from split table structure"""
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            SELECT 
+                column_name, column_description, data_type,
+                is_primary_key, is_nullable, default_value,
+                created_at, updated_at
+            FROM metadata_catalog
+            WHERE malcode = ? AND table_name = ? AND is_active = 1
+            ORDER BY column_name
+        """, (malcode, table_name))
+        
+        columns = []
+        for row in cursor.fetchall():
+            columns.append({
+                'id': f"column_{hash(f'{malcode}_{table_name}_{row[0]}')}",
+                'column_name': row[0],
+                'business_description': row[1],
+                'data_type': row[2],
+                'is_primary_key': row[3],
+                'is_nullable': row[4],
+                'default_value': row[5],
+                'created_at': row[6],
+                'updated_at': row[7],
+                'is_active': True
+            })
+        
+        logger.info(f"Retrieved {len(columns)} columns for {malcode}.{table_name}")
+        return columns
+        
+    except Exception as e:
+        logger.error(f"Error getting columns: {str(e)}")
+        raise Exception(f"Error getting columns: {str(e)}")
+
+def create_malcode_metadata_split_tables(conn, malcode, description, created_by):
+    """Create a new malcode metadata entry"""
+    cursor = conn.cursor()
+    
+    try:
+        # Create a dummy table and column to establish the malcode
+        cursor.execute("""
+            INSERT INTO metadata_catalog (
+                malcode, table_name, column_name, 
+                malcode_description, table_description, column_description,
+                data_type, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            malcode, '_metadata', '_malcode_info',
+            description, 'Metadata table for malcode', 'Malcode information placeholder',
+            'string', created_by
+        ))
+        
+        conn.commit()
+        malcode_id = f"malcode_{hash(malcode)}"
+        logger.info(f"Created malcode metadata: {malcode}")
+        return malcode_id
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error creating malcode metadata: {str(e)}")
+        raise Exception(f"Error creating malcode metadata: {str(e)}")
+
+def create_table_metadata_split_tables(conn, malcode, table_name, description, created_by):
+    """Create a new table metadata entry"""
+    cursor = conn.cursor()
+    
+    try:
+        # Create a dummy column to establish the table
+        cursor.execute("""
+            INSERT INTO metadata_catalog (
+                malcode, table_name, column_name,
+                table_description, column_description,
+                data_type, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            malcode, table_name, '_table_info',
+            description, 'Table information placeholder',
+            'string', created_by
+        ))
+        
+        conn.commit()
+        table_id = f"table_{hash(f'{malcode}_{table_name}')}"
+        logger.info(f"Created table metadata: {malcode}.{table_name}")
+        return table_id
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error creating table metadata: {str(e)}")
+        raise Exception(f"Error creating table metadata: {str(e)}")
+
+def create_column_metadata_split_tables(conn, malcode, table_name, column_name, data_type, description, is_primary_key, is_nullable, default_value, created_by):
+    """Create a new column metadata entry"""
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            INSERT INTO metadata_catalog (
+                malcode, table_name, column_name,
+                column_description, data_type, is_primary_key, is_nullable, default_value,
+                created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            malcode, table_name, column_name,
+            description, data_type, is_primary_key, is_nullable, default_value,
+            created_by
+        ))
+        
+        conn.commit()
+        column_id = f"column_{hash(f'{malcode}_{table_name}_{column_name}')}"
+        logger.info(f"Created column metadata: {malcode}.{table_name}.{column_name}")
+        return column_id
+        
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"Error creating column metadata: {str(e)}")
+        raise Exception(f"Error creating column metadata: {str(e)}")
+
+# ... keep existing code (save_mapping_file_to_split_tables and other functions)
+
 def save_mapping_file_to_split_tables(conn, mapping_file):
     """Save mapping file to split table structure"""
     cursor = conn.cursor()
@@ -294,148 +526,3 @@ def add_mapping_row_comment_split_tables(conn, row_id, comment):
         conn.rollback()
         logger.error(f"Error adding comment: {str(e)}")
         raise Exception(f"Error adding comment: {str(e)}")
-
-def search_metadata_split_tables(conn, search_term):
-    """Search metadata in split table structure"""
-    cursor = conn.cursor()
-    
-    try:
-        search_pattern = f"%{search_term}%"
-        cursor.execute("""
-            SELECT 
-                malcode, table_name, column_name, data_type,
-                malcode_description, table_description, column_description
-            FROM metadata_catalog
-            WHERE is_active = 1 AND (
-                malcode LIKE ? OR
-                table_name LIKE ? OR
-                column_name LIKE ? OR
-                malcode_description LIKE ? OR
-                table_description LIKE ? OR
-                column_description LIKE ?
-            )
-            ORDER BY malcode, table_name, column_name
-        """, (search_pattern, search_pattern, search_pattern, 
-              search_pattern, search_pattern, search_pattern))
-        
-        results = []
-        for row in cursor.fetchall():
-            results.append({
-                'malcode': row[0],
-                'table_name': row[1],
-                'column_name': row[2],
-                'data_type': row[3],
-                'business_description': row[6] or row[5] or row[4]
-            })
-        
-        logger.info(f"Found {len(results)} metadata search results")
-        return results
-        
-    except Exception as e:
-        logger.error(f"Error searching metadata: {str(e)}")
-        raise Exception(f"Error searching metadata: {str(e)}")
-
-def get_all_malcodes_split_tables(conn):
-    """Get all malcodes from split table structure"""
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            SELECT DISTINCT 
-                malcode, malcode_description,
-                MIN(created_at) as created_at,
-                MAX(updated_at) as updated_at
-            FROM metadata_catalog
-            WHERE is_active = 1
-            GROUP BY malcode, malcode_description
-            ORDER BY malcode
-        """)
-        
-        malcodes = []
-        for row in cursor.fetchall():
-            malcodes.append({
-                'id': f"malcode_{hash(row[0])}",
-                'malcode': row[0],
-                'business_description': row[1],
-                'created_at': row[2],
-                'updated_at': row[3],
-                'is_active': True
-            })
-        
-        logger.info(f"Retrieved {len(malcodes)} malcodes")
-        return malcodes
-        
-    except Exception as e:
-        logger.error(f"Error getting malcodes: {str(e)}")
-        raise Exception(f"Error getting malcodes: {str(e)}")
-
-def get_tables_by_malcode_split_tables(conn, malcode):
-    """Get tables by malcode from split table structure"""
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            SELECT DISTINCT 
-                table_name, table_description,
-                MIN(created_at) as created_at,
-                MAX(updated_at) as updated_at
-            FROM metadata_catalog
-            WHERE malcode = ? AND is_active = 1
-            GROUP BY table_name, table_description
-            ORDER BY table_name
-        """, (malcode,))
-        
-        tables = []
-        for row in cursor.fetchall():
-            tables.append({
-                'id': f"table_{hash(f'{malcode}_{row[0]}')}",
-                'table_name': row[0],
-                'business_description': row[1],
-                'created_at': row[2],
-                'updated_at': row[3],
-                'is_active': True
-            })
-        
-        logger.info(f"Retrieved {len(tables)} tables for malcode {malcode}")
-        return tables
-        
-    except Exception as e:
-        logger.error(f"Error getting tables: {str(e)}")
-        raise Exception(f"Error getting tables: {str(e)}")
-
-def get_columns_by_table_split_tables(conn, malcode, table_name):
-    """Get columns by table from split table structure"""
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("""
-            SELECT 
-                column_name, column_description, data_type,
-                is_primary_key, is_nullable, default_value,
-                created_at, updated_at
-            FROM metadata_catalog
-            WHERE malcode = ? AND table_name = ? AND is_active = 1
-            ORDER BY column_name
-        """, (malcode, table_name))
-        
-        columns = []
-        for row in cursor.fetchall():
-            columns.append({
-                'id': f"column_{hash(f'{malcode}_{table_name}_{row[0]}')}",
-                'column_name': row[0],
-                'business_description': row[1],
-                'data_type': row[2],
-                'is_primary_key': row[3],
-                'is_nullable': row[4],
-                'default_value': row[5],
-                'created_at': row[6],
-                'updated_at': row[7],
-                'is_active': True
-            })
-        
-        logger.info(f"Retrieved {len(columns)} columns for {malcode}.{table_name}")
-        return columns
-        
-    except Exception as e:
-        logger.error(f"Error getting columns: {str(e)}")
-        raise Exception(f"Error getting columns: {str(e)}")

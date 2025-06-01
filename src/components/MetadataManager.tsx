@@ -9,7 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Search, Plus, Database, Table, Columns } from 'lucide-react';
-import { metadataService, MalcodeMetadata, TableMetadata, ColumnMetadata } from '@/lib/metadataService';
+import { 
+  metadataServiceSplit, 
+  MalcodeMetadata, 
+  TableMetadata, 
+  ColumnMetadata,
+  SearchResult
+} from '@/lib/metadataServiceSplit';
 
 const MetadataManager = () => {
   const [malcodes, setMalcodes] = useState<MalcodeMetadata[]>([]);
@@ -18,7 +24,7 @@ const MetadataManager = () => {
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [columns, setColumns] = useState<ColumnMetadata[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const { toast } = useToast();
 
   // Form states
@@ -51,7 +57,7 @@ const MetadataManager = () => {
 
   const loadMalcodes = async () => {
     try {
-      const data = await metadataService.getAllMalcodes();
+      const data = await metadataServiceSplit.getAllMalcodes();
       setMalcodes(data);
     } catch (error) {
       toast({
@@ -64,7 +70,7 @@ const MetadataManager = () => {
 
   const loadTables = async (malcodeId: string) => {
     try {
-      const data = await metadataService.getTablesByMalcode(malcodeId);
+      const data = await metadataServiceSplit.getTablesByMalcode(malcodeId);
       setTables(data);
     } catch (error) {
       toast({
@@ -77,7 +83,7 @@ const MetadataManager = () => {
 
   const loadColumns = async (tableId: string) => {
     try {
-      const data = await metadataService.getColumnsByTable(tableId);
+      const data = await metadataServiceSplit.getColumnsByTable(tableId);
       setColumns(data);
     } catch (error) {
       toast({
@@ -92,7 +98,7 @@ const MetadataManager = () => {
     if (!searchTerm.trim()) return;
     
     try {
-      const results = await metadataService.searchMetadata(searchTerm);
+      const results = await metadataServiceSplit.searchMetadata(searchTerm);
       setSearchResults(results);
     } catch (error) {
       toast({
@@ -114,7 +120,7 @@ const MetadataManager = () => {
     }
 
     try {
-      await metadataService.createMalcodeMetadata(
+      await metadataServiceSplit.createMalcodeMetadata(
         newMalcode.malcode,
         newMalcode.description,
         'current_user' // In a real app, get from auth context
@@ -147,7 +153,7 @@ const MetadataManager = () => {
     }
 
     try {
-      await metadataService.createTableMetadata(
+      await metadataServiceSplit.createTableMetadata(
         selectedMalcode,
         newTable.name,
         newTable.description,
@@ -181,7 +187,8 @@ const MetadataManager = () => {
     }
 
     try {
-      await metadataService.createColumnMetadata(selectedTable, {
+      await metadataServiceSplit.createColumnMetadata(selectedTable, {
+        table_id: selectedTable,
         column_name: newColumn.name,
         data_type: newColumn.dataType,
         business_description: newColumn.description,
