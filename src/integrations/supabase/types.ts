@@ -54,6 +54,81 @@ export type Database = {
         }
         Relationships: []
       }
+      mapping_data: {
+        Row: {
+          comments: string | null
+          created_at: string | null
+          created_by: string
+          file_description: string | null
+          file_name: string
+          id: string
+          join_clause: string | null
+          reviewed_at: string | null
+          reviewer: string | null
+          source_column: string
+          source_malcode: string
+          source_system: string
+          source_table: string
+          source_type: string
+          status: string
+          target_column: string
+          target_malcode: string
+          target_system: string
+          target_table: string
+          target_type: string
+          transformation: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string | null
+          created_by: string
+          file_description?: string | null
+          file_name: string
+          id?: string
+          join_clause?: string | null
+          reviewed_at?: string | null
+          reviewer?: string | null
+          source_column: string
+          source_malcode: string
+          source_system: string
+          source_table: string
+          source_type?: string
+          status?: string
+          target_column: string
+          target_malcode: string
+          target_system: string
+          target_table: string
+          target_type?: string
+          transformation?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string | null
+          created_by?: string
+          file_description?: string | null
+          file_name?: string
+          id?: string
+          join_clause?: string | null
+          reviewed_at?: string | null
+          reviewer?: string | null
+          source_column?: string
+          source_malcode?: string
+          source_system?: string
+          source_table?: string
+          source_type?: string
+          status?: string
+          target_column?: string
+          target_malcode?: string
+          target_system?: string
+          target_table?: string
+          target_type?: string
+          transformation?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       mapping_files: {
         Row: {
           created_at: string
@@ -86,6 +161,60 @@ export type Database = {
           source_system?: string
           status?: Database["public"]["Enums"]["mapping_status"]
           target_system?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      metadata_catalog: {
+        Row: {
+          column_description: string | null
+          column_name: string
+          created_at: string | null
+          created_by: string
+          data_type: string | null
+          default_value: string | null
+          id: string
+          is_active: boolean | null
+          is_nullable: boolean | null
+          is_primary_key: boolean | null
+          malcode: string
+          malcode_description: string | null
+          table_description: string | null
+          table_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          column_description?: string | null
+          column_name: string
+          created_at?: string | null
+          created_by?: string
+          data_type?: string | null
+          default_value?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_nullable?: boolean | null
+          is_primary_key?: boolean | null
+          malcode: string
+          malcode_description?: string | null
+          table_description?: string | null
+          table_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          column_description?: string | null
+          column_name?: string
+          created_at?: string | null
+          created_by?: string
+          data_type?: string | null
+          default_value?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_nullable?: boolean | null
+          is_primary_key?: boolean | null
+          malcode?: string
+          malcode_description?: string | null
+          table_description?: string | null
+          table_name?: string
           updated_at?: string | null
         }
         Relationships: []
