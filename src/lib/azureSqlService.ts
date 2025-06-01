@@ -136,6 +136,37 @@ export const convertDbMappingRow = (
   comments: dbRow.comments || [],
 });
 
+// Service object that groups all the functions
+export const azureSqlService = {
+  createMappingFile,
+  upsertMappingColumn,
+  createMappingRow: async (row: MappingRow): Promise<void> => {
+    // For this simplified version, we'll create a temporary file ID
+    const tempFileId = 'temp-file-' + Date.now();
+    return createMappingRow(tempFileId, row);
+  },
+  saveMappingFile,
+  loadMappingFiles,
+  updateMappingRowStatus,
+  addMappingRowComment,
+  initializeSampleData,
+};
+
+// Keep individual exports for backward compatibility
+export {
+  createMappingFile,
+  upsertMappingColumn,
+  createMappingRow,
+  saveMappingFile,
+  loadMappingFiles,
+  updateMappingRowStatus,
+  addMappingRowComment,
+  initializeSampleData,
+  convertDbMappingFile,
+  convertDbMappingColumn,
+  convertDbMappingRow,
+};
+
 // Simulated service functions
 export const createMappingFile = async (mappingFile: MappingFile): Promise<string> => {
   const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);

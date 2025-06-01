@@ -80,6 +80,48 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
     });
   };
 
+  const handleSearchSubmit = () => {
+    // For search mode, we need both source and target metadata
+    if (!sourceMetadata || !targetMetadata) {
+      toast({
+        title: "Missing metadata selection",
+        description: "Please select both source and target metadata",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const newMapping: MappingRow = {
+      id: `mapping-${Date.now()}`,
+      sourceColumn: {
+        id: `source-${Date.now()}`,
+        malcode: sourceMetadata.malcode,
+        table: sourceMetadata.table_name,
+        column: sourceMetadata.column_name,
+        dataType: sourceMetadata.data_type || 'string',
+        sourceType: 'SRZ_ADLS'
+      },
+      targetColumn: {
+        id: `target-${Date.now()}`,
+        malcode: targetMetadata.malcode,
+        table: targetMetadata.table_name,
+        column: targetMetadata.column_name,
+        dataType: targetMetadata.data_type || 'string',
+        targetType: 'CZ_ADLS'
+      },
+      transformation: formData.transformation || undefined,
+      join: formData.joinClause || undefined,
+      status: 'draft',
+      createdBy: 'User',
+      createdAt: new Date(),
+      comments: []
+    };
+
+    console.log('EnhancedAddMappingForm - Search submission:', newMapping);
+    onAddMapping(newMapping);
+    onClose();
+  };
+
   const handleManualSubmit = () => {
     // Validate required fields
     const requiredFields = [
@@ -401,7 +443,7 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
               </div>
             </div>
 
-            {/* Actions for manual mode only */}
+            {/* Actions for manual mode */}
             <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
               <Button variant="outline" onClick={onClose}>
                 Cancel
