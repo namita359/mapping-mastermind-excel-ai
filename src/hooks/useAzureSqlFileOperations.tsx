@@ -33,8 +33,8 @@ export const useAzureSqlFileOperations = (
     try {
       setIsUploading(true);
       
-      // Add to Azure SQL Database
-      await azureSqlService.createMapping(newRow);
+      // Add to Azure SQL Database using the correct method name
+      await azureSqlService.createMappingRow(newRow);
       console.log('useAzureSqlFileOperations - Mapping saved to database successfully');
       
       // Update local state immediately

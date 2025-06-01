@@ -1,3 +1,4 @@
+
 import { MappingFile, MappingRow, MappingColumn, MappingStatus } from './types';
 
 // Simulated Azure SQL Database service for browser environment
@@ -78,8 +79,8 @@ const generateId = (): string => {
   return crypto.randomUUID();
 };
 
-// Convert database types to app types (keeping existing functions)
-export const convertDbMappingFile = (
+// Convert database types to app types
+const convertDbMappingFile = (
   dbFile: DatabaseMappingFile,
   rows: MappingRow[]
 ): MappingFile => ({
@@ -95,7 +96,7 @@ export const convertDbMappingFile = (
   rows
 });
 
-export const convertDbMappingColumn = (dbColumn: DatabaseMappingColumn): MappingColumn => ({
+const convertDbMappingColumn = (dbColumn: DatabaseMappingColumn): MappingColumn => ({
   id: dbColumn.id,
   malcode: dbColumn.malcode,
   table: dbColumn.table_name,
@@ -111,7 +112,7 @@ export const convertDbMappingColumn = (dbColumn: DatabaseMappingColumn): Mapping
   defaultValue: dbColumn.default_value,
 });
 
-export const convertDbMappingRow = (
+const convertDbMappingRow = (
   dbRow: DatabaseMappingRow,
   sourceColumn: DatabaseMappingColumn,
   targetColumn: DatabaseMappingColumn
@@ -136,39 +137,8 @@ export const convertDbMappingRow = (
   comments: dbRow.comments || [],
 });
 
-// Service object that groups all the functions
-export const azureSqlService = {
-  createMappingFile,
-  upsertMappingColumn,
-  createMappingRow: async (row: MappingRow): Promise<void> => {
-    // For this simplified version, we'll create a temporary file ID
-    const tempFileId = 'temp-file-' + Date.now();
-    return createMappingRow(tempFileId, row);
-  },
-  saveMappingFile,
-  loadMappingFiles,
-  updateMappingRowStatus,
-  addMappingRowComment,
-  initializeSampleData,
-};
-
-// Keep individual exports for backward compatibility
-export {
-  createMappingFile,
-  upsertMappingColumn,
-  createMappingRow,
-  saveMappingFile,
-  loadMappingFiles,
-  updateMappingRowStatus,
-  addMappingRowComment,
-  initializeSampleData,
-  convertDbMappingFile,
-  convertDbMappingColumn,
-  convertDbMappingRow,
-};
-
 // Simulated service functions
-export const createMappingFile = async (mappingFile: MappingFile): Promise<string> => {
+const createMappingFile = async (mappingFile: MappingFile): Promise<string> => {
   const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
   const id = generateId();
   
@@ -189,7 +159,7 @@ export const createMappingFile = async (mappingFile: MappingFile): Promise<strin
   return id;
 };
 
-export const upsertMappingColumn = async (column: MappingColumn): Promise<string> => {
+const upsertMappingColumn = async (column: MappingColumn): Promise<string> => {
   const columns = getFromStorage<DatabaseMappingColumn>(STORAGE_KEYS.MAPPING_COLUMNS);
   
   // Check if column exists
@@ -226,7 +196,7 @@ export const upsertMappingColumn = async (column: MappingColumn): Promise<string
   return id;
 };
 
-export const createMappingRow = async (
+const createMappingRow = async (
   mappingFileId: string,
   row: MappingRow
 ): Promise<void> => {
@@ -256,7 +226,7 @@ export const createMappingRow = async (
   saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
 };
 
-export const saveMappingFile = async (mappingFile: MappingFile): Promise<void> => {
+const saveMappingFile = async (mappingFile: MappingFile): Promise<void> => {
   console.log('Saving mapping file to simulated Azure SQL:', mappingFile.name);
   
   const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
@@ -295,7 +265,7 @@ export const saveMappingFile = async (mappingFile: MappingFile): Promise<void> =
   console.log('Successfully saved mapping file to simulated Azure SQL');
 };
 
-export const loadMappingFiles = async (): Promise<MappingFile[]> => {
+const loadMappingFiles = async (): Promise<MappingFile[]> => {
   console.log('Loading mapping files from simulated Azure SQL...');
   
   const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
@@ -327,7 +297,7 @@ export const loadMappingFiles = async (): Promise<MappingFile[]> => {
   return mappingFiles;
 };
 
-export const updateMappingRowStatus = async (
+const updateMappingRowStatus = async (
   rowId: string,
   status: MappingStatus,
   reviewer?: string
@@ -347,7 +317,7 @@ export const updateMappingRowStatus = async (
   }
 };
 
-export const addMappingRowComment = async (
+const addMappingRowComment = async (
   rowId: string,
   comment: string
 ): Promise<void> => {
@@ -365,7 +335,7 @@ export const addMappingRowComment = async (
 };
 
 // Initialize with sample data if storage is empty
-export const initializeSampleData = (): void => {
+const initializeSampleData = (): void => {
   const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
   
   if (files.length === 0) {
@@ -375,4 +345,35 @@ export const initializeSampleData = (): void => {
     // For now, we'll just log that the system is ready
     console.log('Simulated Azure SQL Database ready');
   }
+};
+
+// Service object that groups all the functions
+export const azureSqlService = {
+  createMappingFile,
+  upsertMappingColumn,
+  createMappingRow: async (row: MappingRow): Promise<void> => {
+    // For this simplified version, we'll create a temporary file ID
+    const tempFileId = 'temp-file-' + Date.now();
+    return createMappingRow(tempFileId, row);
+  },
+  saveMappingFile,
+  loadMappingFiles,
+  updateMappingRowStatus,
+  addMappingRowComment,
+  initializeSampleData,
+};
+
+// Export individual functions for backward compatibility
+export {
+  createMappingFile,
+  upsertMappingColumn,
+  createMappingRow,
+  saveMappingFile,
+  loadMappingFiles,
+  updateMappingRowStatus,
+  addMappingRowComment,
+  initializeSampleData,
+  convertDbMappingFile,
+  convertDbMappingColumn,
+  convertDbMappingRow,
 };

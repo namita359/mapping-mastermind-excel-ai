@@ -176,6 +176,16 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
     onAddMapping(mapping);
   };
 
+  // Main submit handler that routes to the correct tab-specific handler
+  const handleSubmit = () => {
+    if (activeTab === 'search') {
+      handleSearchSubmit();
+    } else if (activeTab === 'manual') {
+      handleManualSubmit();
+    }
+    // For dropdowns tab, submission is handled by MetadataDropdownForm
+  };
+
   return (
     <Card className="w-full max-w-6xl max-h-[90vh] overflow-y-auto">
       <CardHeader>
@@ -264,7 +274,7 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
               </Card>
             </div>
 
-            {/* Transformation and Join for metadata mode */}
+            {/* Transformation and Join for search mode */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="transformationMeta">Transformation</Label>
@@ -286,6 +296,16 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
                   rows={3}
                 />
               </div>
+            </div>
+
+            {/* Actions for search mode */}
+            <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSearchSubmit}>
+                Add Mapping
+              </Button>
             </div>
           </TabsContent>
 
@@ -454,16 +474,6 @@ const EnhancedAddMappingForm = ({ onAddMapping, onClose }: EnhancedAddMappingFor
             </div>
           </TabsContent>
         </Tabs>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>
-            Add Mapping
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
