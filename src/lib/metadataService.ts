@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface MalcodeMetadata {
@@ -178,17 +177,117 @@ class MetadataService {
 
   async getAllMalcodes(): Promise<MalcodeMetadata[]> {
     try {
+      console.log('MetadataService.getAllMalcodes: Starting query...');
+      
       const { data, error } = await supabase
         .from('malcode_metadata')
         .select('*')
         .eq('is_active', true)
         .order('malcode');
 
-      if (error) throw error;
+      if (error) {
+        console.error('MetadataService.getAllMalcodes: Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('MetadataService.getAllMalcodes: Received data:', data);
+      console.log('MetadataService.getAllMalcodes: Data length:', data?.length || 0);
+      
+      // If no data found, let's try to create some sample data
+      if (!data || data.length === 0) {
+        console.log('MetadataService.getAllMalcodes: No data found, creating sample data...');
+        await this.createSampleData();
+        
+        // Try again after creating sample data
+        const { data: retryData, error: retryError } = await supabase
+          .from('malcode_metadata')
+          .select('*')
+          .eq('is_active', true)
+          .order('malcode');
+          
+        if (retryError) {
+          console.error('MetadataService.getAllMalcodes: Retry error:', retryError);
+          throw retryError;
+        }
+        
+        console.log('MetadataService.getAllMalcodes: Retry data:', retryData);
+        return retryData || [];
+      }
+      
       return data || [];
     } catch (error) {
-      console.error('Error getting malcodes:', error);
+      console.error('MetadataService.getAllMalcodes: Error:', error);
       throw error;
+    }
+  }
+
+  private async createSampleData(): Promise<void> {
+    try {
+      console.log('MetadataService.createSampleData: Creating sample malcodes...');
+      
+      const sampleMalcodes = [
+        { malcode: 'CUST', business_description: 'Customer data and information', created_by: 'system' },
+        { malcode: 'PROD', business_description: 'Product catalog and inventory', created_by: 'system' },
+        { malcode: 'ORD', business_description: 'Order processing and management', created_by: 'system' },
+        { malcode: 'FIN', business_description: 'Financial transactions and accounting', created_by: 'system' },
+        { malcode: 'HR', business_description: 'Human resources and employee data', created_by: 'system' }
+      ];
+
+      const { data: malcodeData, error: malcodeError } = await supabase
+        .from('malcode_metadata')
+        .insert(sampleMalcodes)
+        .select();
+
+      if (malcodeError) {
+        console.error('MetadataService.createSampleData: Error creating malcodes:', malcodeError);
+        return; // Don't throw, just log and continue
+      }
+
+      console.log('MetadataService.createSampleData: Created malcodes:', malcodeData);
+
+      // Create sample tables for each malcode
+      if (malcodeData && malcodeData.length > 0) {
+        for (const malcode of malcodeData) {
+          const sampleTables = [
+            { malcode_id: malcode.id, table_name: `${malcode.malcode}_MAIN`, business_description: `Main ${malcode.malcode.toLowerCase()} table`, created_by: 'system' },
+            { malcode_id: malcode.id, table_name: `${malcode.malcode}_DETAILS`, business_description: `Details for ${malcode.malcode.toLowerCase()}`, created_by: 'system' }
+          ];
+
+          const { data: tableData, error: tableError } = await supabase
+            .from('table_metadata')
+            .insert(sampleTables)
+            .select();
+
+          if (tableError) {
+            console.error('MetadataService.createSampleData: Error creating tables:', tableError);
+            continue;
+          }
+
+          // Create sample columns for each table
+          if (tableData && tableData.length > 0) {
+            for (const table of tableData) {
+              const sampleColumns = [
+                { table_id: table.id, column_name: 'ID', data_type: 'integer', business_description: 'Primary key', is_primary_key: true, is_nullable: false, created_by: 'system' },
+                { table_id: table.id, column_name: 'NAME', data_type: 'string', business_description: 'Name field', created_by: 'system' },
+                { table_id: table.id, column_name: 'CREATED_DATE', data_type: 'date', business_description: 'Creation date', created_by: 'system' }
+              ];
+
+              const { error: columnError } = await supabase
+                .from('column_metadata')
+                .insert(sampleColumns);
+
+              if (columnError) {
+                console.error('MetadataService.createSampleData: Error creating columns:', columnError);
+              }
+            }
+          }
+        }
+      }
+
+      console.log('MetadataService.createSampleData: Sample data creation completed');
+    } catch (error) {
+      console.error('MetadataService.createSampleData: Error:', error);
+      // Don't throw, just log the error
     }
   }
 

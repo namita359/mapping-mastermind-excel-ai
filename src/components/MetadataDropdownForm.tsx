@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -46,7 +45,14 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     targetType: 'CZ_ADLS'
   });
 
-  console.log('MetadataDropdownForm - Malcodes:', malcodes?.length || 0, 'Loading:', loading, 'Error:', error);
+  // Debug logging
+  console.log('MetadataDropdownForm - Debug Info:', {
+    malcodesCount: malcodes?.length || 0,
+    malcodes: malcodes,
+    loading,
+    error,
+    formData
+  });
 
   const handleSourceMalcodeChange = (malcodeId: string) => {
     console.log('Source malcode changed:', malcodeId);
@@ -164,6 +170,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     onClose();
   };
 
+  // Show loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -173,6 +180,7 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     );
   }
 
+  // Show error state with retry option
   if (error) {
     return (
       <div className="text-center p-8">
@@ -186,22 +194,27 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
     );
   }
 
-  if (!malcodes || malcodes.length === 0) {
-    return (
-      <div className="text-center p-8">
-        <AlertCircle className="h-8 w-8 text-orange-500 mx-auto mb-2" />
-        <p className="text-orange-700 font-medium mb-2">No malcodes found</p>
-        <p className="text-orange-600 text-sm mb-4">Please add metadata first using the Metadata Management page.</p>
-        <Button onClick={refreshMalcodes} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
-      </div>
-    );
-  }
-
+  // Always show the form, even if no malcodes (with helpful message)
   return (
     <div className="space-y-6 p-4">
+      {(!malcodes || malcodes.length === 0) && (
+        <div className="bg-orange-50 border border-orange-200 rounded-md p-4 mb-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-orange-500 mr-2" />
+            <div>
+              <h3 className="text-sm font-medium text-orange-800">No Malcodes Available</h3>
+              <p className="text-sm text-orange-700 mt-1">
+                Please add metadata using the Metadata Management page first, or check your database connection.
+              </p>
+              <Button onClick={refreshMalcodes} variant="outline" size="sm" className="mt-2">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh Data
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Source Column */}
         <Card>
@@ -216,25 +229,44 @@ const MetadataDropdownForm = ({ onAddMapping, onClose }: MetadataDropdownFormPro
               <Select 
                 value={formData.sourceMalcodeId} 
                 onValueChange={handleSourceMalcodeChange}
+                disabled={!malcodes || malcodes.length === 0}
               >
-                <SelectTrigger className="w-full bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-blue-500">
-                  <SelectValue placeholder="Select source malcode" />
+                <SelectTrigger className="w-full bg-white border-2 border-gray-300 hover:border-gray-400 focus:border-blue-500 disabled:opacity-50 disabled:bg-gray-100">
+                  <SelectValue placeholder={
+                    !malcodes || malcodes.length === 0 
+                      ? "No malcodes available" 
+                      : "Select source malcode"
+                  } />
                 </SelectTrigger>
                 <SelectContent className="bg-white border shadow-lg z-[100] max-h-60">
-                  {malcodes.map((malcode) => (
-                    <SelectItem key={malcode.id} value={malcode.id} className="hover:bg-gray-100">
-                      <div className="flex flex-col">
-                        <span className="font-medium">{malcode.malcode}</span>
-                        {malcode.business_description && (
-                          <span className="text-xs text-gray-500">
-                            {malcode.business_description}
-                          </span>
-                        )}
-                      </div>
+                  {!malcodes || malcodes.length === 0 ? (
+                    <SelectItem value="no-data" disabled>
+                      No malcodes found - please add metadata first
                     </SelectItem>
-                  ))}
+                  ) : (
+                    malcodes.map((malcode) => (
+                      <SelectItem key={malcode.id} value={malcode.id} className="hover:bg-gray-100">
+                        <div className="flex flex-col">
+                          <span className="font-medium">{malcode.malcode}</span>
+                          {malcode.business_description && (
+                            <span className="text-xs text-gray-500">
+                              {malcode.business_description}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Debug info */}
+            <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+              Debug: {malcodes?.length || 0} malcodes loaded
+              {malcodes && malcodes.length > 0 && (
+                <div>Available: {malcodes.map(m => m.malcode).join(', ')}</div>
+              )}
             </div>
 
             <div className="space-y-2">

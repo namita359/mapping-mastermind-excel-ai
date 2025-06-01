@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { metadataService, MalcodeMetadata, TableMetadata, ColumnMetadata } from '@/lib/metadataService';
 import { useToast } from '@/hooks/use-toast';
@@ -29,20 +28,19 @@ export const useMetadataDropdowns = () => {
       console.log('useMetadataDropdowns: Received malcodes data:', data);
       console.log('useMetadataDropdowns: Number of malcodes:', data?.length || 0);
       
-      setMalcodes(data || []);
-      
-      if (!data || data.length === 0) {
+      if (data && data.length > 0) {
+        setMalcodes(data);
+        console.log('useMetadataDropdowns: Successfully loaded malcodes:', data.map(m => m.malcode));
+      } else {
         console.warn('useMetadataDropdowns: No malcodes found in database');
-        setError('No malcodes found in database. Sample data should have been loaded.');
+        setError('No malcodes found in database. Please add metadata first.');
         
         // Show a helpful toast message
         toast({
-          title: "No Data Found",
-          description: "No malcodes found. The sample data should have been loaded into the database.",
+          title: "No Malcodes Found",
+          description: "No malcodes found in the database. Please add metadata using the Metadata Management page first.",
           variant: "destructive"
         });
-      } else {
-        console.log('useMetadataDropdowns: Successfully loaded malcodes:', data.map(m => m.malcode));
       }
     } catch (error) {
       console.error('useMetadataDropdowns: Error loading malcodes:', error);
