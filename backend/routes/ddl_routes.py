@@ -161,25 +161,34 @@ async def ddl_health_check():
 
 @router.get("/list-files")
 async def list_sql_files():
-    """List available SQL files for debugging"""
+    """List available SQL files for debugging with enhanced path information"""
     import os
     try:
-        sql_dir = "sql"
-        backend_sql_dir = os.path.join("backend", "sql")
+        # Get the directory where ddl_manager.py is located (via import)
+        import ddl_manager
+        ddl_manager_dir = os.path.dirname(os.path.abspath(ddl_manager.__file__))
+        
+        sql_dir = os.path.join(ddl_manager_dir, "sql")
         
         files = {
-            "current_directory": os.getcwd(),
+            "current_working_directory": os.getcwd(),
+            "ddl_manager_directory": ddl_manager_dir,
+            "sql_directory_path": sql_dir,
             "sql_directory_exists": os.path.exists(sql_dir),
-            "backend_sql_directory_exists": os.path.exists(backend_sql_dir),
             "sql_files": [],
-            "backend_sql_files": []
+            "all_backend_files": []
         }
         
+        # List SQL files
         if os.path.exists(sql_dir):
             files["sql_files"] = [f for f in os.listdir(sql_dir) if f.endswith('.sql')]
             
-        if os.path.exists(backend_sql_dir):
-            files["backend_sql_files"] = [f for f in os.listdir(backend_sql_dir) if f.endswith('.sql')]
+        # List all files in backend directory for debugging
+        if os.path.exists(ddl_manager_dir):
+            for root, dirs, filenames in os.walk(ddl_manager_dir):
+                for filename in filenames:
+                    rel_path = os.path.relpath(os.path.join(root, filename), ddl_manager_dir)
+                    files["all_backend_files"].append(rel_path)
             
         return files
     except Exception as e:
