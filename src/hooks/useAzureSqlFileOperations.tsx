@@ -33,7 +33,7 @@ export const useAzureSqlFileOperations = (
     try {
       setIsUploading(true);
       
-      // Add to Azure SQL Database using the correct method name
+      // Add to Supabase database using the correct method name
       await azureSqlService.createMappingRow(newRow);
       console.log('useAzureSqlFileOperations - Mapping saved to database successfully');
       
@@ -57,7 +57,7 @@ export const useAzureSqlFileOperations = (
       console.error('useAzureSqlFileOperations - Error adding mapping:', error);
       toast({
         title: "Error Adding Mapping",
-        description: "Failed to save mapping to database. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to save mapping to database. Please try again.",
         variant: "destructive"
       });
     } finally {

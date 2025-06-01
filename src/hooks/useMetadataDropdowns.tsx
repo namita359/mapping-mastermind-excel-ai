@@ -33,14 +33,24 @@ export const useMetadataDropdowns = () => {
       
       if (!data || data.length === 0) {
         console.warn('useMetadataDropdowns: No malcodes found in database');
-        setError('No malcodes found in database. Please add metadata first.');
+        setError('No malcodes found in database. Sample data should have been loaded.');
+        
+        // Show a helpful toast message
+        toast({
+          title: "No Data Found",
+          description: "No malcodes found. The sample data should have been loaded into the database.",
+          variant: "destructive"
+        });
+      } else {
+        console.log('useMetadataDropdowns: Successfully loaded malcodes:', data.map(m => m.malcode));
       }
     } catch (error) {
       console.error('useMetadataDropdowns: Error loading malcodes:', error);
-      setError(`Failed to load malcodes: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(`Failed to load malcodes: ${errorMessage}`);
       toast({
-        title: "Error",
-        description: "Failed to load malcodes",
+        title: "Database Error",
+        description: `Failed to load malcodes: ${errorMessage}`,
         variant: "destructive"
       });
     } finally {
@@ -66,7 +76,7 @@ export const useMetadataDropdowns = () => {
       console.error('useMetadataDropdowns: Error loading tables:', error);
       toast({
         title: "Error",
-        description: "Failed to load tables",
+        description: `Failed to load tables: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }
@@ -87,7 +97,7 @@ export const useMetadataDropdowns = () => {
       console.error('useMetadataDropdowns: Error loading columns:', error);
       toast({
         title: "Error",
-        description: "Failed to load columns",
+        description: `Failed to load columns: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     }

@@ -1,15 +1,5 @@
-
 import { MappingFile, MappingRow, MappingColumn, MappingStatus } from './types';
-
-// Simulated Azure SQL Database service for browser environment
-// This replaces the actual mssql integration which cannot run in browsers
-
-// Local storage keys
-const STORAGE_KEYS = {
-  MAPPING_FILES: 'azure_sql_mapping_files',
-  MAPPING_COLUMNS: 'azure_sql_mapping_columns',
-  MAPPING_ROWS: 'azure_sql_mapping_rows'
-} as const;
+import { supabase } from '@/integrations/supabase/client';
 
 // Database interfaces (keeping the same structure for compatibility)
 export interface DatabaseMappingFile {
@@ -56,28 +46,6 @@ export interface DatabaseMappingRow {
   reviewed_at?: Date;
   comments?: string[];
 }
-
-// Utility functions for local storage
-const getFromStorage = <T>(key: string): T[] => {
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveToStorage = <T>(key: string, data: T[]): void => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error) {
-    console.error('Failed to save to localStorage:', error);
-  }
-};
-
-const generateId = (): string => {
-  return crypto.randomUUID();
-};
 
 // Convert database types to app types
 const convertDbMappingFile = (
@@ -137,150 +105,214 @@ const convertDbMappingRow = (
   comments: dbRow.comments || [],
 });
 
-// Simulated service functions
+// Supabase service functions
 const createMappingFile = async (mappingFile: MappingFile): Promise<string> => {
-  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
-  const id = generateId();
+  console.log('Creating mapping file in Supabase:', mappingFile.name);
   
-  const dbFile: DatabaseMappingFile = {
-    id,
-    name: mappingFile.name,
-    description: mappingFile.description,
-    source_system: mappingFile.sourceSystem,
-    target_system: mappingFile.targetSystem,
-    status: mappingFile.status,
-    created_by: mappingFile.createdBy,
-    created_at: new Date(),
-  };
+  const { data, error } = await supabase
+    .from('mapping_files')
+    .insert({
+      name: mappingFile.name,
+      description: mappingFile.description,
+      source_system: mappingFile.sourceSystem,
+      target_system: mappingFile.targetSystem,
+      status: mappingFile.status,
+      created_by: mappingFile.createdBy,
+    })
+    .select()
+    .single();
   
-  files.push(dbFile);
-  saveToStorage(STORAGE_KEYS.MAPPING_FILES, files);
+  if (error) {
+    console.error('Error creating mapping file:', error);
+    throw error;
+  }
   
-  return id;
+  console.log('Successfully created mapping file:', data.id);
+  return data.id;
 };
 
 const upsertMappingColumn = async (column: MappingColumn): Promise<string> => {
-  const columns = getFromStorage<DatabaseMappingColumn>(STORAGE_KEYS.MAPPING_COLUMNS);
+  console.log('Upserting mapping column:', column.malcode, column.table, column.column);
   
   // Check if column exists
-  const existing = columns.find(col => 
-    col.malcode === column.malcode && 
-    col.table_name === column.table && 
-    col.column_name === column.column
-  );
+  const { data: existing, error: selectError } = await supabase
+    .from('mapping_columns')
+    .select('id')
+    .eq('malcode', column.malcode)
+    .eq('table_name', column.table)
+    .eq('column_name', column.column)
+    .maybeSingle();
+  
+  if (selectError) {
+    console.error('Error checking existing column:', selectError);
+    throw selectError;
+  }
   
   if (existing) {
+    console.log('Column already exists:', existing.id);
     return existing.id;
   }
   
   // Create new column
-  const id = generateId();
-  const dbColumn: DatabaseMappingColumn = {
-    id,
-    malcode: column.malcode,
-    table_name: column.table,
-    column_name: column.column,
-    data_type: column.dataType,
-    malcode_description: column.businessMetadata?.malcodeDescription,
-    table_description: column.businessMetadata?.tableDescription,
-    column_description: column.businessMetadata?.columnDescription,
-    is_primary_key: column.isPrimaryKey,
-    is_nullable: column.isNullable,
-    default_value: column.defaultValue,
-    created_at: new Date(),
-  };
+  const { data, error } = await supabase
+    .from('mapping_columns')
+    .insert({
+      malcode: column.malcode,
+      table_name: column.table,
+      column_name: column.column,
+      data_type: column.dataType,
+      malcode_description: column.businessMetadata?.malcodeDescription,
+      table_description: column.businessMetadata?.tableDescription,
+      column_description: column.businessMetadata?.columnDescription,
+      is_primary_key: column.isPrimaryKey,
+      is_nullable: column.isNullable,
+      default_value: column.defaultValue,
+    })
+    .select()
+    .single();
   
-  columns.push(dbColumn);
-  saveToStorage(STORAGE_KEYS.MAPPING_COLUMNS, columns);
+  if (error) {
+    console.error('Error creating mapping column:', error);
+    throw error;
+  }
   
-  return id;
+  console.log('Successfully created mapping column:', data.id);
+  return data.id;
 };
 
 const createMappingRow = async (
   mappingFileId: string,
   row: MappingRow
 ): Promise<void> => {
+  console.log('Creating mapping row for file:', mappingFileId);
+  
   const sourceColumnId = await upsertMappingColumn(row.sourceColumn);
   const targetColumnId = await upsertMappingColumn(row.targetColumn);
   
-  const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+  const { error } = await supabase
+    .from('mapping_rows')
+    .insert({
+      mapping_file_id: mappingFileId,
+      source_column_id: sourceColumnId,
+      target_column_id: targetColumnId,
+      source_type: row.sourceColumn.sourceType as 'SRZ_ADLS',
+      target_type: row.targetColumn.targetType as 'CZ_ADLS' | 'SYNAPSE_TABLE',
+      transformation: row.transformation,
+      join_clause: row.join,
+      status: row.status,
+      created_by: row.createdBy,
+      reviewer: row.reviewer,
+      reviewed_at: row.reviewedAt,
+      comments: row.comments || [],
+    });
   
-  const dbRow: DatabaseMappingRow = {
-    id: generateId(),
-    mapping_file_id: mappingFileId,
-    source_column_id: sourceColumnId,
-    target_column_id: targetColumnId,
-    source_type: row.sourceColumn.sourceType as 'SRZ_ADLS',
-    target_type: row.targetColumn.targetType as 'CZ_ADLS' | 'SYNAPSE_TABLE',
-    transformation: row.transformation,
-    join_clause: row.join,
-    status: row.status,
-    created_by: row.createdBy,
-    created_at: new Date(),
-    reviewer: row.reviewer,
-    reviewed_at: row.reviewedAt,
-    comments: row.comments || [],
-  };
+  if (error) {
+    console.error('Error creating mapping row:', error);
+    throw error;
+  }
   
-  rows.push(dbRow);
-  saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
+  console.log('Successfully created mapping row');
 };
 
 const saveMappingFile = async (mappingFile: MappingFile): Promise<void> => {
-  console.log('Saving mapping file to simulated Azure SQL:', mappingFile.name);
+  console.log('Saving mapping file to Supabase:', mappingFile.name);
   
-  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
-  const existingFileIndex = files.findIndex(f => f.name === mappingFile.name);
+  // Check if file exists
+  const { data: existingFile, error: selectError } = await supabase
+    .from('mapping_files')
+    .select('id')
+    .eq('name', mappingFile.name)
+    .maybeSingle();
+  
+  if (selectError) {
+    console.error('Error checking existing file:', selectError);
+    throw selectError;
+  }
   
   let mappingFileId: string;
   
-  if (existingFileIndex >= 0) {
+  if (existingFile) {
     // Update existing file
-    mappingFileId = files[existingFileIndex].id;
-    files[existingFileIndex] = {
-      ...files[existingFileIndex],
-      description: mappingFile.description,
-      source_system: mappingFile.sourceSystem,
-      target_system: mappingFile.targetSystem,
-      status: mappingFile.status,
-      updated_at: new Date(),
-    };
+    mappingFileId = existingFile.id;
+    const { error: updateError } = await supabase
+      .from('mapping_files')
+      .update({
+        description: mappingFile.description,
+        source_system: mappingFile.sourceSystem,
+        target_system: mappingFile.targetSystem,
+        status: mappingFile.status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', mappingFileId);
+    
+    if (updateError) {
+      console.error('Error updating mapping file:', updateError);
+      throw updateError;
+    }
     
     // Delete existing rows for this file
-    const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
-    const filteredRows = rows.filter(row => row.mapping_file_id !== mappingFileId);
-    saveToStorage(STORAGE_KEYS.MAPPING_ROWS, filteredRows);
+    const { error: deleteError } = await supabase
+      .from('mapping_rows')
+      .delete()
+      .eq('mapping_file_id', mappingFileId);
+    
+    if (deleteError) {
+      console.error('Error deleting existing rows:', deleteError);
+      throw deleteError;
+    }
   } else {
     // Create new file
     mappingFileId = await createMappingFile(mappingFile);
   }
-  
-  saveToStorage(STORAGE_KEYS.MAPPING_FILES, files);
   
   // Save all mapping rows
   for (const row of mappingFile.rows) {
     await createMappingRow(mappingFileId, row);
   }
   
-  console.log('Successfully saved mapping file to simulated Azure SQL');
+  console.log('Successfully saved mapping file to Supabase');
 };
 
 const loadMappingFiles = async (): Promise<MappingFile[]> => {
-  console.log('Loading mapping files from simulated Azure SQL...');
+  console.log('Loading mapping files from Supabase...');
   
-  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
-  const allColumns = getFromStorage<DatabaseMappingColumn>(STORAGE_KEYS.MAPPING_COLUMNS);
-  const allRows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
+  const { data: files, error: filesError } = await supabase
+    .from('mapping_files')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if (filesError) {
+    console.error('Error loading mapping files:', filesError);
+    throw filesError;
+  }
+  
+  const { data: allColumns, error: columnsError } = await supabase
+    .from('mapping_columns')
+    .select('*');
+  
+  if (columnsError) {
+    console.error('Error loading mapping columns:', columnsError);
+    throw columnsError;
+  }
+  
+  const { data: allRows, error: rowsError } = await supabase
+    .from('mapping_rows')
+    .select('*');
+  
+  if (rowsError) {
+    console.error('Error loading mapping rows:', rowsError);
+    throw rowsError;
+  }
   
   const mappingFiles: MappingFile[] = [];
   
-  for (const file of files) {
+  for (const file of files || []) {
     // Get rows for this file
-    const fileRows = allRows.filter(row => row.mapping_file_id === file.id);
+    const fileRows = (allRows || []).filter(row => row.mapping_file_id === file.id);
     
     const mappingRows = fileRows.map(row => {
-      const sourceColumn = allColumns.find(col => col.id === row.source_column_id);
-      const targetColumn = allColumns.find(col => col.id === row.target_column_id);
+      const sourceColumn = (allColumns || []).find(col => col.id === row.source_column_id);
+      const targetColumn = (allColumns || []).find(col => col.id === row.target_column_id);
       
       if (!sourceColumn || !targetColumn) {
         console.warn('Missing column data for row:', row.id);
@@ -293,7 +325,7 @@ const loadMappingFiles = async (): Promise<MappingFile[]> => {
     mappingFiles.push(convertDbMappingFile(file, mappingRows));
   }
   
-  console.log(`Loaded ${mappingFiles.length} mapping files from simulated Azure SQL`);
+  console.log(`Loaded ${mappingFiles.length} mapping files from Supabase`);
   return mappingFiles;
 };
 
@@ -302,49 +334,63 @@ const updateMappingRowStatus = async (
   status: MappingStatus,
   reviewer?: string
 ): Promise<void> => {
-  const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
-  const rowIndex = rows.findIndex(row => row.id === rowId);
+  console.log('Updating mapping row status:', rowId, status);
   
-  if (rowIndex >= 0) {
-    rows[rowIndex] = {
-      ...rows[rowIndex],
+  const { error } = await supabase
+    .from('mapping_rows')
+    .update({
       status,
       reviewer,
-      reviewed_at: new Date(),
-      updated_at: new Date(),
-    };
-    saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', rowId);
+  
+  if (error) {
+    console.error('Error updating mapping row status:', error);
+    throw error;
   }
+  
+  console.log('Successfully updated mapping row status');
 };
 
 const addMappingRowComment = async (
   rowId: string,
   comment: string
 ): Promise<void> => {
-  const rows = getFromStorage<DatabaseMappingRow>(STORAGE_KEYS.MAPPING_ROWS);
-  const rowIndex = rows.findIndex(row => row.id === rowId);
+  console.log('Adding comment to mapping row:', rowId);
   
-  if (rowIndex >= 0) {
-    const currentComments = rows[rowIndex].comments || [];
-    rows[rowIndex] = {
-      ...rows[rowIndex],
-      comments: [...currentComments, comment],
-    };
-    saveToStorage(STORAGE_KEYS.MAPPING_ROWS, rows);
+  // Get current comments
+  const { data: currentRow, error: selectError } = await supabase
+    .from('mapping_rows')
+    .select('comments')
+    .eq('id', rowId)
+    .single();
+  
+  if (selectError) {
+    console.error('Error fetching current comments:', selectError);
+    throw selectError;
   }
+  
+  const currentComments = currentRow.comments || [];
+  const updatedComments = [...currentComments, comment];
+  
+  const { error } = await supabase
+    .from('mapping_rows')
+    .update({ comments: updatedComments })
+    .eq('id', rowId);
+  
+  if (error) {
+    console.error('Error adding comment to mapping row:', error);
+    throw error;
+  }
+  
+  console.log('Successfully added comment to mapping row');
 };
 
-// Initialize with sample data if storage is empty
+// Initialize function (no longer needed for Supabase)
 const initializeSampleData = (): void => {
-  const files = getFromStorage<DatabaseMappingFile>(STORAGE_KEYS.MAPPING_FILES);
-  
-  if (files.length === 0) {
-    console.log('Initializing with sample mapping data...');
-    
-    // This would typically be called on first load to populate with sample data
-    // For now, we'll just log that the system is ready
-    console.log('Simulated Azure SQL Database ready');
-  }
+  console.log('Supabase database ready - sample data should be populated via SQL migrations');
 };
 
 // Service object that groups all the functions
@@ -352,9 +398,44 @@ export const azureSqlService = {
   createMappingFile,
   upsertMappingColumn,
   createMappingRow: async (row: MappingRow): Promise<void> => {
-    // For this simplified version, we'll create a temporary file ID
-    const tempFileId = 'temp-file-' + Date.now();
-    return createMappingRow(tempFileId, row);
+    // For standalone row creation, we'll create a temporary file
+    console.log('Creating standalone mapping row - this should be called with a proper file ID');
+    
+    // Get or create a default mapping file
+    const { data: defaultFile, error: selectError } = await supabase
+      .from('mapping_files')
+      .select('id')
+      .eq('name', 'Default Mapping File')
+      .maybeSingle();
+    
+    let fileId: string;
+    
+    if (!defaultFile) {
+      // Create default file
+      const { data: newFile, error: createError } = await supabase
+        .from('mapping_files')
+        .insert({
+          name: 'Default Mapping File',
+          description: 'Auto-created file for standalone mappings',
+          source_system: 'Various',
+          target_system: 'Various',
+          status: 'draft',
+          created_by: 'system',
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('Error creating default file:', createError);
+        throw createError;
+      }
+      
+      fileId = newFile.id;
+    } else {
+      fileId = defaultFile.id;
+    }
+    
+    return createMappingRow(fileId, row);
   },
   saveMappingFile,
   loadMappingFiles,
