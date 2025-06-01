@@ -1,17 +1,16 @@
-
 import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from ddl_manager import (
+from table_operations import (
     create_tables, 
     create_metadata_tables, 
     create_single_mapping_table, 
     drop_tables, 
-    verify_tables, 
-    execute_custom_sql
+    verify_tables
 )
+from ddl_manager import execute_custom_sql
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ddl", tags=["ddl"])
@@ -164,15 +163,15 @@ async def list_sql_files():
     """List available SQL files for debugging with enhanced path information"""
     import os
     try:
-        # Get the directory where ddl_manager.py is located (via import)
-        import ddl_manager
-        ddl_manager_dir = os.path.dirname(os.path.abspath(ddl_manager.__file__))
+        # Get the directory where table_operations.py is located (via import)
+        import table_operations
+        table_operations_dir = os.path.dirname(os.path.abspath(table_operations.__file__))
         
-        sql_dir = os.path.join(ddl_manager_dir, "sql")
+        sql_dir = os.path.join(table_operations_dir, "sql")
         
         files = {
             "current_working_directory": os.getcwd(),
-            "ddl_manager_directory": ddl_manager_dir,
+            "table_operations_directory": table_operations_dir,
             "sql_directory_path": sql_dir,
             "sql_directory_exists": os.path.exists(sql_dir),
             "sql_files": [],
@@ -184,10 +183,10 @@ async def list_sql_files():
             files["sql_files"] = [f for f in os.listdir(sql_dir) if f.endswith('.sql')]
             
         # List all files in backend directory for debugging
-        if os.path.exists(ddl_manager_dir):
-            for root, dirs, filenames in os.walk(ddl_manager_dir):
+        if os.path.exists(table_operations_dir):
+            for root, dirs, filenames in os.walk(table_operations_dir):
                 for filename in filenames:
-                    rel_path = os.path.relpath(os.path.join(root, filename), ddl_manager_dir)
+                    rel_path = os.path.relpath(os.path.join(root, filename), table_operations_dir)
                     files["all_backend_files"].append(rel_path)
             
         return files

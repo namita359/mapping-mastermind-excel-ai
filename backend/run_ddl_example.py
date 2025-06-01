@@ -6,7 +6,8 @@ Example script showing how to run DDL operations programmatically
 
 import asyncio
 import json
-from ddl_manager import create_tables, drop_tables, verify_tables, execute_custom_sql
+from table_operations import create_tables, drop_tables, verify_tables
+from ddl_manager import execute_custom_sql
 
 async def main():
     """Main function to demonstrate DDL operations"""
