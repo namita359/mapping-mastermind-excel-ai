@@ -79,6 +79,16 @@ def create_metadata_tables():
         logger.info("Metadata tables created successfully")
         return results
 
+def create_single_mapping_table():
+    """Execute create_single_mapping_table.sql script"""
+    sql_file_path = os.path.join("sql", "create_single_mapping_table.sql")
+    sql_script = read_sql_file(sql_file_path)
+    
+    with get_db_connection() as conn:
+        results = execute_sql_script(conn, sql_script)
+        logger.info("Single mapping table created successfully")
+        return results
+
 def drop_tables():
     """Execute drop_tables.sql script"""
     sql_file_path = os.path.join("sql", "drop_tables.sql")
