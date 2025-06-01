@@ -1,6 +1,5 @@
 
 -- Verification script to check if tables were created successfully
--- Run this after executing create_tables.sql
 
 -- Check if tables exist
 SELECT 
@@ -13,9 +12,17 @@ SELECT
 UNION ALL
 SELECT 
     'mapping_rows' as table_name,
-    CASE WHEN EXISTS (SELECT * FROM sys.tables WHERE name = 'mapping_rows') THEN 'EXISTS' ELSE 'MISSING' END as status;
+    CASE WHEN EXISTS (SELECT * FROM sys.tables WHERE name = 'mapping_rows') THEN 'EXISTS' ELSE 'MISSING' END as status
+UNION ALL
+SELECT 
+    'metadata_single' as table_name,
+    CASE WHEN EXISTS (SELECT * FROM sys.tables WHERE name = 'metadata_single') THEN 'EXISTS' ELSE 'MISSING' END as status
+UNION ALL
+SELECT 
+    'mapping_single' as table_name,
+    CASE WHEN EXISTS (SELECT * FROM sys.tables WHERE name = 'mapping_single') THEN 'EXISTS' ELSE 'MISSING' END as status;
 
--- Check table schemas
+-- Check table schemas for existing tables
 SELECT 
     t.name AS table_name,
     c.name AS column_name,
@@ -26,7 +33,7 @@ SELECT
 FROM sys.tables t
 INNER JOIN sys.columns c ON t.object_id = c.object_id
 INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
-WHERE t.name IN ('mapping_files', 'mapping_columns', 'mapping_rows')
+WHERE t.name IN ('mapping_files', 'mapping_columns', 'mapping_rows', 'metadata_single', 'mapping_single')
 ORDER BY t.name, c.column_id;
 
 -- Check foreign key relationships
@@ -42,8 +49,8 @@ INNER JOIN sys.tables tr ON fk.referenced_object_id = tr.object_id
 INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
 INNER JOIN sys.columns cp ON fkc.parent_object_id = cp.object_id AND fkc.parent_column_id = cp.column_id
 INNER JOIN sys.columns cr ON fkc.referenced_object_id = cr.object_id AND fkc.referenced_column_id = cr.column_id
-WHERE tp.name IN ('mapping_files', 'mapping_columns', 'mapping_rows')
-   OR tr.name IN ('mapping_files', 'mapping_columns', 'mapping_rows');
+WHERE tp.name IN ('mapping_files', 'mapping_columns', 'mapping_rows', 'metadata_single', 'mapping_single')
+   OR tr.name IN ('mapping_files', 'mapping_columns', 'mapping_rows', 'metadata_single', 'mapping_single');
 
 -- Check indexes
 SELECT 
@@ -53,7 +60,8 @@ SELECT
     i.is_unique
 FROM sys.indexes i
 INNER JOIN sys.tables t ON i.object_id = t.object_id
-WHERE t.name IN ('mapping_files', 'mapping_columns', 'mapping_rows')
+WHERE t.name IN ('mapping_files', 'mapping_columns', 'mapping_rows', 'metadata_single', 'mapping_single')
   AND i.name IS NOT NULL
 ORDER BY t.name, i.name;
 
+PRINT 'Table verification completed successfully.';

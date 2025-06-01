@@ -83,41 +83,4 @@ CREATE INDEX IX_mapping_rows_status ON mapping_rows(status);
 CREATE INDEX IX_mapping_rows_created_by ON mapping_rows(created_by);
 CREATE INDEX IX_mapping_rows_reviewer ON mapping_rows(reviewer);
 
--- Create trigger to automatically update updated_at column
-CREATE TRIGGER TR_mapping_files_updated_at
-ON mapping_files
-AFTER UPDATE
-AS
-BEGIN
-    UPDATE mapping_files 
-    SET updated_at = GETDATE()
-    FROM mapping_files f
-    INNER JOIN inserted i ON f.id = i.id;
-END;
-
-CREATE TRIGGER TR_mapping_rows_updated_at
-ON mapping_rows
-AFTER UPDATE
-AS
-BEGIN
-    UPDATE mapping_rows 
-    SET updated_at = GETDATE()
-    FROM mapping_rows r
-    INNER JOIN inserted i ON r.id = i.id;
-END;
-
--- Sample data insertion (optional - for testing)
-/*
-INSERT INTO mapping_files (name, description, source_system, target_system, created_by)
-VALUES 
-    ('Customer Data Mapping', 'Mapping customer data from source to target', 'Source_CRM', 'Target_DW', 'admin'),
-    ('Product Data Mapping', 'Mapping product data transformation', 'Source_ERP', 'Target_DW', 'admin');
-
-INSERT INTO mapping_columns (malcode, table_name, column_name, data_type, malcode_description)
-VALUES 
-    ('CRM001', 'customers', 'customer_id', 'integer', 'Customer identifier'),
-    ('CRM002', 'customers', 'customer_name', 'string', 'Customer full name'),
-    ('DW001', 'dim_customer', 'cust_key', 'integer', 'Customer dimension key'),
-    ('DW002', 'dim_customer', 'cust_name', 'string', 'Customer name in data warehouse');
-*/
-
+PRINT 'Database tables created successfully.';

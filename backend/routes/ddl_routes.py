@@ -4,7 +4,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from ddl_manager import create_tables, create_metadata_tables, create_single_mapping_table, drop_tables, verify_tables, execute_custom_sql
+from ddl_manager import (
+    create_tables, 
+    create_metadata_tables, 
+    create_single_mapping_table, 
+    drop_tables, 
+    verify_tables, 
+    execute_custom_sql
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/ddl", tags=["ddl"])
@@ -21,11 +28,18 @@ class DDLResponse(BaseModel):
 async def create_database_tables():
     """Create all database tables using create_tables.sql"""
     try:
+        logger.info("Starting table creation process")
         results = create_tables()
         return DDLResponse(
             success=True,
             message="Tables created successfully",
             results=results
+        )
+    except FileNotFoundError as e:
+        logger.error(f"SQL file not found: {str(e)}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"SQL file not found. Please ensure create_tables.sql exists in the sql directory. Error: {str(e)}"
         )
     except Exception as e:
         logger.error(f"Failed to create tables: {str(e)}")
@@ -35,11 +49,18 @@ async def create_database_tables():
 async def create_metadata_database_tables():
     """Create metadata tables using create_metadata_tables.sql"""
     try:
+        logger.info("Starting metadata table creation process")
         results = create_metadata_tables()
         return DDLResponse(
             success=True,
             message="Metadata tables created successfully",
             results=results
+        )
+    except FileNotFoundError as e:
+        logger.error(f"SQL file not found: {str(e)}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"SQL file not found. Please ensure create_metadata_tables.sql exists in the sql directory. Error: {str(e)}"
         )
     except Exception as e:
         logger.error(f"Failed to create metadata tables: {str(e)}")
@@ -49,11 +70,18 @@ async def create_metadata_database_tables():
 async def create_single_mapping_database_table():
     """Create single mapping table using create_single_mapping_table.sql"""
     try:
+        logger.info("Starting single mapping table creation process")
         results = create_single_mapping_table()
         return DDLResponse(
             success=True,
             message="Single mapping table created successfully",
             results=results
+        )
+    except FileNotFoundError as e:
+        logger.error(f"SQL file not found: {str(e)}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"SQL file not found. Please ensure create_single_mapping_table.sql exists in the sql directory. Error: {str(e)}"
         )
     except Exception as e:
         logger.error(f"Failed to create single mapping table: {str(e)}")
@@ -63,11 +91,18 @@ async def create_single_mapping_database_table():
 async def drop_database_tables():
     """Drop all database tables using drop_tables.sql"""
     try:
+        logger.info("Starting table drop process")
         results = drop_tables()
         return DDLResponse(
             success=True,
             message="Tables dropped successfully",
             results=results
+        )
+    except FileNotFoundError as e:
+        logger.error(f"SQL file not found: {str(e)}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"SQL file not found. Please ensure drop_tables.sql exists in the sql directory. Error: {str(e)}"
         )
     except Exception as e:
         logger.error(f"Failed to drop tables: {str(e)}")
@@ -77,11 +112,18 @@ async def drop_database_tables():
 async def verify_database_tables():
     """Verify database tables using verify_tables.sql"""
     try:
+        logger.info("Starting table verification process")
         results = verify_tables()
         return DDLResponse(
             success=True,
             message="Table verification completed",
             results=results
+        )
+    except FileNotFoundError as e:
+        logger.error(f"SQL file not found: {str(e)}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"SQL file not found. Please ensure verify_tables.sql exists in the sql directory. Error: {str(e)}"
         )
     except Exception as e:
         logger.error(f"Failed to verify tables: {str(e)}")
@@ -91,6 +133,7 @@ async def verify_database_tables():
 async def execute_custom_sql_script(request: CustomSQLRequest):
     """Execute custom SQL script"""
     try:
+        logger.info(f"Executing custom SQL script (length: {len(request.sql_script)} characters)")
         results = execute_custom_sql(request.sql_script)
         return DDLResponse(
             success=True,
@@ -106,10 +149,39 @@ async def ddl_health_check():
     """Check if DDL operations are available"""
     try:
         from database import get_db_connection
+        logger.info("Performing DDL health check")
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT 1")
+            cursor.close()
             return {"status": "healthy", "message": "DDL operations available"}
     except Exception as e:
         logger.error(f"DDL health check failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"DDL operations unavailable: {str(e)}")
+
+@router.get("/list-files")
+async def list_sql_files():
+    """List available SQL files for debugging"""
+    import os
+    try:
+        sql_dir = "sql"
+        backend_sql_dir = os.path.join("backend", "sql")
+        
+        files = {
+            "current_directory": os.getcwd(),
+            "sql_directory_exists": os.path.exists(sql_dir),
+            "backend_sql_directory_exists": os.path.exists(backend_sql_dir),
+            "sql_files": [],
+            "backend_sql_files": []
+        }
+        
+        if os.path.exists(sql_dir):
+            files["sql_files"] = [f for f in os.listdir(sql_dir) if f.endswith('.sql')]
+            
+        if os.path.exists(backend_sql_dir):
+            files["backend_sql_files"] = [f for f in os.listdir(backend_sql_dir) if f.endswith('.sql')]
+            
+        return files
+    except Exception as e:
+        logger.error(f"Failed to list SQL files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list SQL files: {str(e)}")
