@@ -2,14 +2,13 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { MappingFile } from "@/lib/types";
-import { createBackendApiService, getBackendApiUrl } from "@/lib/backendApiService";
+import { supabase } from "@/integrations/supabase/client";
 import GenerationControls from "./test-data/GenerationControls";
 import TestDataStats from "./test-data/TestDataStats";
 import SQLQueryDisplay from "./test-data/SQLQueryDisplay";
 import TestDataTabs from "./test-data/TestDataTabs";
 import EmptyState from "./test-data/EmptyState";
 import TargetSelectionFilters from "./test-data/TargetSelectionFilters";
-import BackendApiConfigModal from "./BackendApiConfigModal";
 
 interface TestRecord {
   [key: string]: any;
@@ -24,7 +23,6 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [generatedData, setGeneratedData] = useState<TestRecord[]>([]);
   const [sqlQuery, setSqlQuery] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   
   // Filter states
@@ -43,18 +41,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     })
   };
 
-  const checkBackendApiConfig = () => {
-    const apiUrl = getBackendApiUrl();
-    if (!apiUrl || apiUrl === 'http://localhost:3000') {
-      setShowConfigModal(true);
-      return false;
-    }
-    return true;
-  };
-
   const generateCompleteAnalysis = async () => {
-    if (!checkBackendApiConfig()) return;
-    
     if (filteredMappingFile.rows.length === 0) {
       toast({
         title: "No Mappings Selected",
@@ -67,22 +54,19 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     setIsGenerating(true);
     
     try {
-      const backendApiService = createBackendApiService();
-
-      console.log("Starting backend API analysis pipeline for filtered mappings:", {
+      console.log("Starting OpenAI analysis pipeline for filtered mappings:", {
         originalCount: mappingFile.rows.length,
         filteredCount: filteredMappingFile.rows.length,
         selectedMalcode,
-        selectedTable,
-        backendUrl: getBackendApiUrl()
+        selectedTable
       });
       
       toast({
-        title: "Backend API Analysis Started",
+        title: "AI Analysis Started",
         description: `Processing SQL generation, test data creation, and validation for ${filteredMappingFile.rows.length} filtered mappings...`,
       });
 
-      // Convert filtered mapping file to the format expected by backend API
+      // Convert filtered mapping file to the format expected by OpenAI
       const mappingInfo = {
         name: `${filteredMappingFile.name}${selectedMalcode ? ` (${selectedMalcode})` : ''}${selectedTable ? ` - ${selectedTable}` : ''}`,
         rows: filteredMappingFile.rows.map(row => ({
@@ -101,40 +85,51 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         }))
       };
 
-      console.log("Sending mapping info to backend:", mappingInfo);
+      console.log("Sending mapping info to OpenAI:", mappingInfo);
 
-      // Call the backend API for complete processing
-      const result = await backendApiService.processComplete(mappingInfo);
+      // Call the Supabase Edge Function for complete processing
+      const { data, error } = await supabase.functions.invoke('openai-analysis', {
+        body: {
+          mappingInfo
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
       
-      console.log("Backend API response received:", result);
+      console.log("OpenAI analysis response received:", data);
       
       // Set all results
-      setSqlQuery(result.sqlQuery);
-      setGeneratedData(result.testData);
-      setValidationResult(result.validationResults);
+      setSqlQuery(data.sqlQuery);
+      setGeneratedData(data.testData);
+      setValidationResult(data.validationResults);
       setHasGenerated(true);
       
       toast({
-        title: "Backend API Analysis Complete",
-        description: `Successfully generated SQL query, ${result.testData.length} test scenarios, and validation results`,
+        title: "AI Analysis Complete",
+        description: `Successfully generated SQL query, ${data.testData.length} test scenarios, and validation results`,
       });
       
     } catch (error) {
-      console.error("Error in backend API analysis:", error);
+      console.error("Error in AI analysis:", error);
       
-      let errorMessage = "Failed to complete backend API analysis";
-      let errorDescription = "Please check your backend API configuration and try again.";
+      let errorMessage = "Failed to complete AI analysis";
+      let errorDescription = "Please check your OpenAI API configuration and try again.";
       
       if (error instanceof Error) {
-        if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-          errorMessage = "Backend API Connection Failed";
-          errorDescription = "Cannot connect to your backend API. Please verify the URL is correct and the service is running.";
+        if (error.message.includes('OPENAI_API_KEY')) {
+          errorMessage = "OpenAI API Key Missing";
+          errorDescription = "Please configure your OpenAI API key in Supabase Edge Function secrets.";
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+          errorMessage = "Network Connection Failed";
+          errorDescription = "Cannot connect to OpenAI API. Please check your internet connection.";
         } else if (error.message.includes('500')) {
-          errorMessage = "Backend API Server Error";
-          errorDescription = "Your backend API returned a server error. Please check your backend logs.";
-        } else if (error.message.includes('404')) {
-          errorMessage = "Backend API Endpoint Not Found";
-          errorDescription = "The backend API endpoint was not found. Please verify your backend API has the required endpoints.";
+          errorMessage = "OpenAI API Server Error";
+          errorDescription = "OpenAI API returned a server error. Please try again in a moment.";
+        } else if (error.message.includes('401')) {
+          errorMessage = "OpenAI API Authentication Failed";
+          errorDescription = "Invalid OpenAI API key. Please check your API key configuration.";
         } else {
           errorDescription = error.message;
         }
@@ -165,7 +160,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         generatedAt: new Date().toISOString(),
         mappingFile: filteredMappingFile.name,
         recordCount: generatedData.length,
-        backendApiUrl: getBackendApiUrl()
+        analysisType: "OpenAI Complete Analysis"
       },
       sqlQuery,
       testData: generatedData,
@@ -177,7 +172,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `backend_api_results_${filteredMappingFile.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `ai_analysis_results_${filteredMappingFile.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -185,14 +180,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     
     toast({
       title: "Download Complete",
-      description: "Backend API analysis results downloaded successfully",
-    });
-  };
-
-  const handleConfigSet = () => {
-    toast({
-      title: "Backend API Configured",
-      description: "Backend API URL has been saved. You can now run the complete analysis.",
+      description: "AI analysis results downloaded successfully",
     });
   };
 
@@ -238,12 +226,6 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
           onDataChange={setGeneratedData}
         />
       )}
-
-      <BackendApiConfigModal
-        isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
-        onConfigSet={handleConfigSet}
-      />
     </div>
   );
 };
