@@ -60,16 +60,34 @@ export const useMetadataDropdowns = () => {
 
   const loadTablesForMalcode = async (malcodeId: string, isSource: boolean) => {
     try {
-      console.log(`useMetadataDropdowns: Loading tables for malcode ${malcodeId}, isSource: ${isSource}`);
-      const tables = await metadataService.getTablesByMalcode(malcodeId);
-      console.log(`useMetadataDropdowns: Received ${tables.length} tables for malcode ${malcodeId}`);
+      console.log(`useMetadataDropdowns: Loading tables for malcode ID ${malcodeId}, isSource: ${isSource}`);
+      
+      // Find the malcode object by ID to get the actual malcode string
+      const malcodeObj = malcodes.find(m => m.id === malcodeId);
+      if (!malcodeObj) {
+        console.error(`useMetadataDropdowns: Could not find malcode with ID ${malcodeId}`);
+        toast({
+          title: "Error",
+          description: "Could not find selected malcode",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log(`useMetadataDropdowns: Found malcode object:`, malcodeObj);
+      console.log(`useMetadataDropdowns: Loading tables for malcode string: ${malcodeObj.malcode}`);
+      
+      const tables = await metadataService.getTablesByMalcode(malcodeObj.malcode);
+      console.log(`useMetadataDropdowns: Received ${tables.length} tables for malcode ${malcodeObj.malcode}:`, tables);
       
       if (isSource) {
         setSourceTables(tables);
         setSourceColumns([]); // Clear columns when malcode changes
+        console.log(`useMetadataDropdowns: Set ${tables.length} source tables`);
       } else {
         setTargetTables(tables);
         setTargetColumns([]); // Clear columns when malcode changes
+        console.log(`useMetadataDropdowns: Set ${tables.length} target tables`);
       }
     } catch (error) {
       console.error('useMetadataDropdowns: Error loading tables:', error);
@@ -84,13 +102,44 @@ export const useMetadataDropdowns = () => {
   const loadColumnsForTable = async (tableId: string, isSource: boolean) => {
     try {
       console.log(`useMetadataDropdowns: Loading columns for table ${tableId}, isSource: ${isSource}`);
-      const columns = await metadataService.getColumnsByTable(tableId);
-      console.log(`useMetadataDropdowns: Received ${columns.length} columns for table ${tableId}`);
+      
+      // Find the table object by ID to get the malcode and table name
+      const tables = isSource ? sourceTables : targetTables;
+      const tableObj = tables.find(t => t.id === tableId);
+      if (!tableObj) {
+        console.error(`useMetadataDropdowns: Could not find table with ID ${tableId}`);
+        toast({
+          title: "Error",
+          description: "Could not find selected table",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log(`useMetadataDropdowns: Found table object:`, tableObj);
+      
+      // Find the malcode for this table
+      const malcodeId = isSource ? 
+        document.querySelector<HTMLSelectElement>('[name="sourceMalcodeId"]')?.value :
+        document.querySelector<HTMLSelectElement>('[name="targetMalcodeId"]')?.value;
+      
+      const malcodeObj = malcodes.find(m => m.id === malcodeId);
+      if (!malcodeObj) {
+        console.error(`useMetadataDropdowns: Could not find malcode for table ${tableId}`);
+        return;
+      }
+      
+      console.log(`useMetadataDropdowns: Loading columns for malcode: ${malcodeObj.malcode}, table: ${tableObj.table_name}`);
+      
+      const columns = await metadataService.getColumnsByTable(malcodeObj.malcode, tableObj.table_name);
+      console.log(`useMetadataDropdowns: Received ${columns.length} columns for table ${tableObj.table_name}:`, columns);
       
       if (isSource) {
         setSourceColumns(columns);
+        console.log(`useMetadataDropdowns: Set ${columns.length} source columns`);
       } else {
         setTargetColumns(columns);
+        console.log(`useMetadataDropdowns: Set ${columns.length} target columns`);
       }
     } catch (error) {
       console.error('useMetadataDropdowns: Error loading columns:', error);
