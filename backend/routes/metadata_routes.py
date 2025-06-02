@@ -3,7 +3,7 @@ import logging
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Query
 
-from database_single import (
+from database import (
     get_db_connection, 
     search_metadata_single_table, 
     get_all_malcodes_single_table,

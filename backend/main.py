@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -8,7 +7,7 @@ from routes.openai_routes import router as openai_router
 from routes.ddl_routes import router as ddl_router
 from routes.metadata_routes import router as metadata_router
 
-app = FastAPI(title="Data Mapping Backend API - Split Tables", version="2.0.0")
+app = FastAPI(title="Data Mapping Backend API - Single Table Structure", version="2.0.0")
 
 # Configure CORS
 app.add_middleware(
