@@ -11,7 +11,10 @@ from .metadata_operations import (
     search_metadata_single_table,
     get_all_malcodes_single_table,
     get_tables_by_malcode_single_table,
-    get_columns_by_table_single_table
+    get_columns_by_table_single_table,
+    create_malcode_metadata_single_table,
+    create_table_metadata_single_table,
+    create_column_metadata_single_table
 )
 
 # Export all functions for backward compatibility
@@ -24,5 +27,8 @@ __all__ = [
     'search_metadata_single_table',
     'get_all_malcodes_single_table',
     'get_tables_by_malcode_single_table',
-    'get_columns_by_table_single_table'
+    'get_columns_by_table_single_table',
+    'create_malcode_metadata_single_table',
+    'create_table_metadata_single_table',
+    'create_column_metadata_single_table'
 ]

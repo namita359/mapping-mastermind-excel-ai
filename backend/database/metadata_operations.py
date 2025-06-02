@@ -152,3 +152,73 @@ def get_columns_by_table_single_table(conn, malcode: str, table_name: str) -> Li
         })
     
     return columns
+
+def create_malcode_metadata_single_table(conn, malcode: str, description: str, created_by: str) -> str:
+    """Create a new malcode in the metadata_single table"""
+    cursor = conn.cursor()
+    
+    # Insert a new record in metadata_single table for the malcode
+    cursor.execute("""
+        INSERT INTO metadata_single (
+            malcode, malcode_description, table_name, column_name, 
+            data_type, created_by, created_at, updated_at, is_active
+        ) VALUES (?, ?, 'default_table', 'default_column', 'string', ?, GETDATE(), GETDATE(), 1)
+    """, (malcode, description, created_by))
+    
+    conn.commit()
+    return malcode
+
+def create_table_metadata_single_table(conn, malcode: str, table_name: str, description: str, created_by: str) -> str:
+    """Create a new table in the metadata_single table"""
+    cursor = conn.cursor()
+    
+    # Get the malcode description
+    malcode_desc = ""
+    cursor.execute("SELECT malcode_description FROM metadata_single WHERE malcode = ? LIMIT 1", (malcode,))
+    result = cursor.fetchone()
+    if result:
+        malcode_desc = result[0]
+    
+    # Insert a new record in metadata_single table for the table
+    cursor.execute("""
+        INSERT INTO metadata_single (
+            malcode, malcode_description, table_name, table_description, 
+            column_name, data_type, created_by, created_at, updated_at, is_active
+        ) VALUES (?, ?, ?, ?, 'default_column', 'string', ?, GETDATE(), GETDATE(), 1)
+    """, (malcode, malcode_desc, table_name, description, created_by))
+    
+    conn.commit()
+    return f"{malcode}_{table_name}"
+
+def create_column_metadata_single_table(conn, malcode: str, table_name: str, column_name: str, 
+                                       data_type: str, description: str, is_primary_key: bool, 
+                                       is_nullable: bool, default_value: str, created_by: str) -> str:
+    """Create a new column in the metadata_single table"""
+    cursor = conn.cursor()
+    
+    # Get the malcode and table descriptions
+    malcode_desc = ""
+    table_desc = ""
+    cursor.execute("""
+        SELECT malcode_description, table_description 
+        FROM metadata_single 
+        WHERE malcode = ? AND table_name = ? 
+        LIMIT 1
+    """, (malcode, table_name))
+    result = cursor.fetchone()
+    if result:
+        malcode_desc = result[0]
+        table_desc = result[1]
+    
+    # Insert a new record in metadata_single table for the column
+    cursor.execute("""
+        INSERT INTO metadata_single (
+            malcode, malcode_description, table_name, table_description,
+            column_name, column_description, data_type, is_primary_key, 
+            is_nullable, default_value, created_by, created_at, updated_at, is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, GETDATE(), GETDATE(), 1)
+    """, (malcode, malcode_desc, table_name, table_desc, column_name, description, 
+          data_type, is_primary_key, is_nullable, default_value, created_by))
+    
+    conn.commit()
+    return f"{malcode}_{table_name}_{column_name}"
