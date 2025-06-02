@@ -242,7 +242,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         <OpenAIKeyModal
           isOpen={showOpenAIModal}
           onClose={() => setShowOpenAIModal(false)}
-          onSubmit={handleOpenAIKeySubmit}
+          onKeySet={handleOpenAIKeySubmit}
         />
       )}
     </div>
