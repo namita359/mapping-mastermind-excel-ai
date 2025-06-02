@@ -6,13 +6,13 @@ Example script showing how to run DDL operations programmatically
 
 import asyncio
 import json
-from table_operations import create_tables, drop_tables, verify_tables
+from table_operations import create_tables, drop_tables, verify_tables, create_single_mapping_table, create_single_metadata_table
 from ddl_manager import execute_custom_sql
 
 async def main():
     """Main function to demonstrate DDL operations"""
     
-    print("=== Azure SQL DDL Operations Demo ===\n")
+    print("=== Azure SQL DDL Operations Demo (Single Table Structure) ===\n")
     
     try:
         # 1. Verify current state
@@ -36,16 +36,24 @@ async def main():
             print(f"  {result.get('message', result)}")
         print()
         
-        # 3. Create tables
-        print("3. Creating new tables...")
-        create_results = create_tables()
-        print("Create results:")
-        for result in create_results:
+        # 3. Create single mapping table
+        print("3. Creating single mapping table...")
+        create_mapping_results = create_single_mapping_table()
+        print("Create mapping table results:")
+        for result in create_mapping_results:
             print(f"  {result.get('message', result)}")
         print()
         
-        # 4. Verify tables were created
-        print("4. Verifying tables were created...")
+        # 4. Create single metadata table
+        print("4. Creating single metadata table...")
+        create_metadata_results = create_single_metadata_table()
+        print("Create metadata table results:")
+        for result in create_metadata_results:
+            print(f"  {result.get('message', result)}")
+        print()
+        
+        # 5. Verify tables were created
+        print("5. Verifying tables were created...")
         verify_results = verify_tables()
         print("Final verification results:")
         for result in verify_results:
@@ -57,13 +65,22 @@ async def main():
                 print(f"  {result.get('message', result)}")
         print()
         
-        # 5. Example of custom SQL
-        print("5. Running custom SQL example...")
+        # 6. Example of custom SQL with single table
+        print("6. Running custom SQL example on single table...")
         custom_sql = """
-        INSERT INTO mapping_files (name, description, source_system, target_system, created_by)
-        VALUES ('Test Mapping', 'Test description', 'Source_System', 'Target_System', 'admin');
+        INSERT INTO mapping_single (
+            mapping_file_name, mapping_file_description, source_system, target_system,
+            source_malcode, source_table_name, source_column_name, source_data_type,
+            target_malcode, target_table_name, target_column_name, target_data_type,
+            transformation, created_by
+        ) VALUES (
+            'Test Mapping Single', 'Test description for single table', 'Source_System', 'Target_System',
+            'TEST', 'TEST_TABLE', 'TEST_COLUMN', 'string',
+            'TGT', 'TGT_TABLE', 'TGT_COLUMN', 'string',
+            'DIRECT', 'admin'
+        );
         
-        SELECT COUNT(*) as file_count FROM mapping_files;
+        SELECT COUNT(*) as mapping_count FROM mapping_single;
         """
         custom_results = execute_custom_sql(custom_sql)
         print("Custom SQL results:")
@@ -74,7 +91,7 @@ async def main():
                 print(f"  {result.get('message', result)}")
         print()
         
-        print("=== DDL Operations completed successfully! ===")
+        print("=== DDL Operations completed successfully with single table structure! ===")
         
     except Exception as e:
         print(f"Error during DDL operations: {str(e)}")

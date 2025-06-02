@@ -7,7 +7,6 @@ from table_operations import (
     create_metadata_tables,
     create_single_mapping_table,
     create_single_metadata_table,
-    create_split_tables,
     drop_tables,
     verify_tables
 )
@@ -31,7 +30,6 @@ __all__ = [
     'create_metadata_tables', 
     'create_single_mapping_table',
     'create_single_metadata_table',
-    'create_split_tables',
     'drop_tables',
     'verify_tables',
     'execute_custom_sql'
