@@ -2,13 +2,14 @@
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { MappingFile } from "@/lib/types";
-import { supabase } from "@/integrations/supabase/client";
+import { createOpenAIService, getOpenAIKey } from "@/lib/openaiService";
 import GenerationControls from "./test-data/GenerationControls";
 import TestDataStats from "./test-data/TestDataStats";
 import SQLQueryDisplay from "./test-data/SQLQueryDisplay";
 import TestDataTabs from "./test-data/TestDataTabs";
 import EmptyState from "./test-data/EmptyState";
 import TargetSelectionFilters from "./test-data/TargetSelectionFilters";
+import OpenAIKeyModal from "./OpenAIKeyModal";
 
 interface TestRecord {
   [key: string]: any;
@@ -24,6 +25,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   const [sqlQuery, setSqlQuery] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
+  const [showOpenAIModal, setShowOpenAIModal] = useState(false);
   
   // Filter states
   const [selectedMalcode, setSelectedMalcode] = useState<string | null>(null);
@@ -42,6 +44,13 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
   };
 
   const generateCompleteAnalysis = async () => {
+    // Check if OpenAI API key is available
+    const openAIService = createOpenAIService();
+    if (!openAIService) {
+      setShowOpenAIModal(true);
+      return;
+    }
+
     if (filteredMappingFile.rows.length === 0) {
       toast({
         title: "No Mappings Selected",
@@ -87,28 +96,20 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
 
       console.log("Sending mapping info to OpenAI:", mappingInfo);
 
-      // Call the Supabase Edge Function for complete processing
-      const { data, error } = await supabase.functions.invoke('openai-analysis', {
-        body: {
-          mappingInfo
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
+      // Call the OpenAI service directly
+      const result = await openAIService.processComplete(mappingInfo);
       
-      console.log("OpenAI analysis response received:", data);
+      console.log("OpenAI analysis response received:", result);
       
       // Set all results
-      setSqlQuery(data.sqlQuery);
-      setGeneratedData(data.testData);
-      setValidationResult(data.validationResults);
+      setSqlQuery(result.sqlQuery);
+      setGeneratedData(result.testData);
+      setValidationResult(result.validationResults);
       setHasGenerated(true);
       
       toast({
         title: "AI Analysis Complete",
-        description: `Successfully generated SQL query, ${data.testData.length} test scenarios, and validation results`,
+        description: `Successfully generated SQL query, ${result.testData.length} test scenarios, and validation results`,
       });
       
     } catch (error) {
@@ -118,9 +119,10 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
       let errorDescription = "Please check your OpenAI API configuration and try again.";
       
       if (error instanceof Error) {
-        if (error.message.includes('OPENAI_API_KEY')) {
-          errorMessage = "OpenAI API Key Missing";
-          errorDescription = "Please configure your OpenAI API key in Supabase Edge Function secrets.";
+        if (error.message.includes('API key')) {
+          errorMessage = "OpenAI API Key Issue";
+          errorDescription = "Invalid or missing OpenAI API key. Please check your API key configuration.";
+          setShowOpenAIModal(true);
         } else if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
           errorMessage = "Network Connection Failed";
           errorDescription = "Cannot connect to OpenAI API. Please check your internet connection.";
@@ -130,6 +132,7 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
         } else if (error.message.includes('401')) {
           errorMessage = "OpenAI API Authentication Failed";
           errorDescription = "Invalid OpenAI API key. Please check your API key configuration.";
+          setShowOpenAIModal(true);
         } else {
           errorDescription = error.message;
         }
@@ -184,6 +187,14 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
     });
   };
 
+  const handleOpenAIKeySubmit = () => {
+    setShowOpenAIModal(false);
+    // Try to run the analysis again if a key was added
+    if (getOpenAIKey()) {
+      generateCompleteAnalysis();
+    }
+  };
+
   if (mappingFile.rows.length === 0) {
     return <EmptyState />;
   }
@@ -224,6 +235,14 @@ const TestDataGenerator = ({ mappingFile }: TestDataGeneratorProps) => {
           validationResult={validationResult}
           onSQLChange={setSqlQuery}
           onDataChange={setGeneratedData}
+        />
+      )}
+
+      {showOpenAIModal && (
+        <OpenAIKeyModal
+          isOpen={showOpenAIModal}
+          onClose={() => setShowOpenAIModal(false)}
+          onSubmit={handleOpenAIKeySubmit}
         />
       )}
     </div>
