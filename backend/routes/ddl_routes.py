@@ -6,7 +6,8 @@ from typing import List, Dict, Any
 from table_operations import (
     create_tables, 
     create_metadata_tables, 
-    create_single_mapping_table, 
+    create_single_mapping_table,
+    create_single_metadata_table,
     drop_tables, 
     verify_tables
 )
@@ -85,6 +86,27 @@ async def create_single_mapping_database_table():
     except Exception as e:
         logger.error(f"Failed to create single mapping table: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to create single mapping table: {str(e)}")
+
+@router.post("/create-single-metadata-table", response_model=DDLResponse)
+async def create_single_metadata_database_table():
+    """Create single metadata table using create_single_metadata_table.sql"""
+    try:
+        logger.info("Starting single metadata table creation process")
+        results = create_single_metadata_table()
+        return DDLResponse(
+            success=True,
+            message="Single metadata table created successfully",
+            results=results
+        )
+    except FileNotFoundError as e:
+        logger.error(f"SQL file not found: {str(e)}")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"SQL file not found. Please ensure create_single_metadata_table.sql exists in the sql directory. Error: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to create single metadata table: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create single metadata table: {str(e)}")
 
 @router.post("/drop-tables", response_model=DDLResponse)
 async def drop_database_tables():
