@@ -1,4 +1,3 @@
-
 const API_BASE_URL = 'http://localhost:3001/api';
 
 export interface MalcodeMetadata {
@@ -32,6 +31,9 @@ export interface SearchResult {
   business_description?: string;
   data_type?: string;
 }
+
+// Export alias for compatibility with components
+export type MetadataSearchResult = SearchResult;
 
 class MetadataService {
   private async fetchWithErrorHandling(url: string, options?: RequestInit) {
