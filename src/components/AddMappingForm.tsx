@@ -308,13 +308,13 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                         <Select 
                           onValueChange={handleSourceTableChange} 
                           value={field.value}
-                          disabled={!form.watch("sourceMalcodeId") || sourceTables.length === 0}
+                          disabled={!form.watch("sourceMalcodeId")}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-white border-2 border-gray-300">
                               <SelectValue placeholder={
                                 !form.watch("sourceMalcodeId") ? "Select malcode first" : 
-                                sourceTables.length === 0 ? "No tables available" : 
+                                sourceTables.length === 0 ? "Loading tables..." : 
                                 "Select source table"
                               } />
                             </SelectTrigger>
@@ -335,7 +335,7 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                               ))
                             ) : (
                               <SelectItem value="no-data" disabled>
-                                No tables found
+                                {!form.watch("sourceMalcodeId") ? "Select malcode first" : "No tables found"}
                               </SelectItem>
                             )}
                           </SelectContent>
@@ -354,13 +354,13 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value}
-                          disabled={!form.watch("sourceTableId") || sourceColumns.length === 0}
+                          disabled={!form.watch("sourceTableId")}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-white border-2 border-gray-300">
                               <SelectValue placeholder={
                                 !form.watch("sourceTableId") ? "Select table first" : 
-                                sourceColumns.length === 0 ? "No columns available" : 
+                                sourceColumns.length === 0 ? "Loading columns..." : 
                                 "Select source column"
                               } />
                             </SelectTrigger>
@@ -380,7 +380,7 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                               ))
                             ) : (
                               <SelectItem value="no-data" disabled>
-                                No columns found
+                                {!form.watch("sourceTableId") ? "Select table first" : "No columns found"}
                               </SelectItem>
                             )}
                           </SelectContent>
@@ -507,13 +507,13 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                         <Select 
                           onValueChange={handleTargetTableChange} 
                           value={field.value}
-                          disabled={!form.watch("targetMalcodeId") || targetTables.length === 0}
+                          disabled={!form.watch("targetMalcodeId")}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-white border-2 border-gray-300">
                               <SelectValue placeholder={
                                 !form.watch("targetMalcodeId") ? "Select malcode first" : 
-                                targetTables.length === 0 ? "No tables available" : 
+                                targetTables.length === 0 ? "Loading tables..." : 
                                 "Select target table"
                               } />
                             </SelectTrigger>
@@ -534,7 +534,7 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                               ))
                             ) : (
                               <SelectItem value="no-data" disabled>
-                                No tables found
+                                {!form.watch("targetMalcodeId") ? "Select malcode first" : "No tables found"}
                               </SelectItem>
                             )}
                           </SelectContent>
@@ -553,13 +553,13 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value}
-                          disabled={!form.watch("targetTableId") || targetColumns.length === 0}
+                          disabled={!form.watch("targetTableId")}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-white border-2 border-gray-300">
                               <SelectValue placeholder={
                                 !form.watch("targetTableId") ? "Select table first" : 
-                                targetColumns.length === 0 ? "No columns available" : 
+                                targetColumns.length === 0 ? "Loading columns..." : 
                                 "Select target column"
                               } />
                             </SelectTrigger>
@@ -579,7 +579,7 @@ export function AddMappingForm({ mappingFile, onAddMapping, isOpen, onClose }: A
                               ))
                             ) : (
                               <SelectItem value="no-data" disabled>
-                                No columns found
+                                {!form.watch("targetTableId") ? "Select table first" : "No columns found"}
                               </SelectItem>
                             )}
                           </SelectContent>
