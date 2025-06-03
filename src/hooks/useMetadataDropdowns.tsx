@@ -13,6 +13,10 @@ export const useMetadataDropdowns = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track selected malcode values for proper column loading
+  const [selectedSourceMalcode, setSelectedSourceMalcode] = useState<string>('');
+  const [selectedTargetMalcode, setSelectedTargetMalcode] = useState<string>('');
+
   // Load all malcodes on component mount
   useEffect(() => {
     console.log('useMetadataDropdowns: Component mounted, loading malcodes...');
@@ -77,6 +81,13 @@ export const useMetadataDropdowns = () => {
       console.log(`useMetadataDropdowns: Found malcode object:`, malcodeObj);
       console.log(`useMetadataDropdowns: Loading tables for malcode string: ${malcodeObj.malcode}`);
       
+      // Store the selected malcode for column loading
+      if (isSource) {
+        setSelectedSourceMalcode(malcodeObj.malcode);
+      } else {
+        setSelectedTargetMalcode(malcodeObj.malcode);
+      }
+      
       const tables = await metadataService.getTablesByMalcode(malcodeObj.malcode);
       console.log(`useMetadataDropdowns: Received ${tables.length} tables for malcode ${malcodeObj.malcode}:`, tables);
       
@@ -103,7 +114,7 @@ export const useMetadataDropdowns = () => {
     try {
       console.log(`useMetadataDropdowns: Loading columns for table ${tableId}, isSource: ${isSource}`);
       
-      // Find the table object by ID to get the malcode and table name
+      // Find the table object by ID to get the table name
       const tables = isSource ? sourceTables : targetTables;
       const tableObj = tables.find(t => t.id === tableId);
       if (!tableObj) {
@@ -118,20 +129,21 @@ export const useMetadataDropdowns = () => {
       
       console.log(`useMetadataDropdowns: Found table object:`, tableObj);
       
-      // Find the malcode for this table
-      const malcodeId = isSource ? 
-        document.querySelector<HTMLSelectElement>('[name="sourceMalcodeId"]')?.value :
-        document.querySelector<HTMLSelectElement>('[name="targetMalcodeId"]')?.value;
-      
-      const malcodeObj = malcodes.find(m => m.id === malcodeId);
-      if (!malcodeObj) {
-        console.error(`useMetadataDropdowns: Could not find malcode for table ${tableId}`);
+      // Use the stored malcode value
+      const malcodeString = isSource ? selectedSourceMalcode : selectedTargetMalcode;
+      if (!malcodeString) {
+        console.error(`useMetadataDropdowns: No malcode selected for ${isSource ? 'source' : 'target'}`);
+        toast({
+          title: "Error",
+          description: "Please select a malcode first",
+          variant: "destructive"
+        });
         return;
       }
       
-      console.log(`useMetadataDropdowns: Loading columns for malcode: ${malcodeObj.malcode}, table: ${tableObj.table_name}`);
+      console.log(`useMetadataDropdowns: Loading columns for malcode: ${malcodeString}, table: ${tableObj.table_name}`);
       
-      const columns = await metadataService.getColumnsByTable(malcodeObj.malcode, tableObj.table_name);
+      const columns = await metadataService.getColumnsByTable(malcodeString, tableObj.table_name);
       console.log(`useMetadataDropdowns: Received ${columns.length} columns for table ${tableObj.table_name}:`, columns);
       
       if (isSource) {
