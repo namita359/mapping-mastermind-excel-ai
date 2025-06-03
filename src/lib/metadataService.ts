@@ -203,6 +203,30 @@ const MOCK_COLUMNS: { [tableName: string]: ColumnMetadata[] } = {
       is_nullable: true
     }
   ],
+  'customer_preferences': [
+    {
+      id: 'mock-col-30',
+      column_name: 'preference_id',
+      data_type: 'string',
+      business_description: 'Unique preference identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-31',
+      column_name: 'customer_id',
+      data_type: 'string',
+      business_description: 'Reference to customer',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-32',
+      column_name: 'preference_type',
+      data_type: 'string',
+      business_description: 'Type of preference',
+      is_nullable: false
+    }
+  ],
   'product_catalog': [
     {
       id: 'mock-col-11',
@@ -238,6 +262,54 @@ const MOCK_COLUMNS: { [tableName: string]: ColumnMetadata[] } = {
       column_name: 'unit_price',
       data_type: 'decimal',
       business_description: 'Base unit price before discounts',
+      is_nullable: false
+    }
+  ],
+  'product_inventory': [
+    {
+      id: 'mock-col-33',
+      column_name: 'inventory_id',
+      data_type: 'string',
+      business_description: 'Unique inventory identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-34',
+      column_name: 'product_id',
+      data_type: 'string',
+      business_description: 'Reference to product',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-35',
+      column_name: 'quantity_on_hand',
+      data_type: 'integer',
+      business_description: 'Current inventory quantity',
+      is_nullable: false
+    }
+  ],
+  'product_pricing': [
+    {
+      id: 'mock-col-36',
+      column_name: 'pricing_id',
+      data_type: 'string',
+      business_description: 'Unique pricing identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-37',
+      column_name: 'product_id',
+      data_type: 'string',
+      business_description: 'Reference to product',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-38',
+      column_name: 'price_tier',
+      data_type: 'string',
+      business_description: 'Pricing tier classification',
       is_nullable: false
     }
   ],
@@ -278,10 +350,122 @@ const MOCK_COLUMNS: { [tableName: string]: ColumnMetadata[] } = {
       business_description: 'Current status of the order',
       is_nullable: false
     }
+  ],
+  'order_details': [
+    {
+      id: 'mock-col-39',
+      column_name: 'detail_id',
+      data_type: 'string',
+      business_description: 'Unique detail identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-40',
+      column_name: 'order_id',
+      data_type: 'string',
+      business_description: 'Reference to order',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-41',
+      column_name: 'product_id',
+      data_type: 'string',
+      business_description: 'Reference to product',
+      is_nullable: false
+    }
+  ],
+  'order_payments': [
+    {
+      id: 'mock-col-42',
+      column_name: 'payment_id',
+      data_type: 'string',
+      business_description: 'Unique payment identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-43',
+      column_name: 'order_id',
+      data_type: 'string',
+      business_description: 'Reference to order',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-44',
+      column_name: 'payment_method',
+      data_type: 'string',
+      business_description: 'Method of payment',
+      is_nullable: false
+    }
+  ],
+  'account_ledger': [
+    {
+      id: 'mock-col-45',
+      column_name: 'ledger_id',
+      data_type: 'string',
+      business_description: 'Unique ledger entry identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-46',
+      column_name: 'account_number',
+      data_type: 'string',
+      business_description: 'Account number',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-47',
+      column_name: 'transaction_amount',
+      data_type: 'decimal',
+      business_description: 'Transaction amount',
+      is_nullable: false
+    }
+  ],
+  'invoice_data': [
+    {
+      id: 'mock-col-48',
+      column_name: 'invoice_id',
+      data_type: 'string',
+      business_description: 'Unique invoice identifier',
+      is_primary_key: true,
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-49',
+      column_name: 'invoice_number',
+      data_type: 'string',
+      business_description: 'Invoice number',
+      is_nullable: false
+    },
+    {
+      id: 'mock-col-50',
+      column_name: 'invoice_amount',
+      data_type: 'decimal',
+      business_description: 'Total invoice amount',
+      is_nullable: false
+    }
   ]
 };
 
+// Check if backend is available (simple flag to control behavior)
+let backendAvailable = false;
+
 class MetadataService {
+  private async checkBackendAvailability(): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/health`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(2000) // 2 second timeout
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   private async fetchWithErrorHandling(url: string, options?: RequestInit) {
     console.log(`MetadataService: Making request to ${url}`);
     
@@ -292,6 +476,7 @@ class MetadataService {
           'Content-Type': 'application/json',
           ...options?.headers,
         },
+        signal: AbortSignal.timeout(5000) // 5 second timeout
       });
 
       console.log(`MetadataService: Response status: ${response.status}`);
@@ -307,19 +492,22 @@ class MetadataService {
       return data;
     } catch (error) {
       console.error(`MetadataService: Network error for ${url}:`, error);
-      
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.log('MetadataService: Backend unavailable, falling back to mock data');
-        throw new Error('BACKEND_UNAVAILABLE');
-      }
-      
-      throw error;
+      throw new Error('BACKEND_UNAVAILABLE');
     }
   }
 
   async getAllMalcodes(): Promise<MalcodeMetadata[]> {
+    console.log('MetadataService: Getting all malcodes...');
+    
+    // Check backend availability first
+    backendAvailable = await this.checkBackendAvailability();
+    
+    if (!backendAvailable) {
+      console.log('MetadataService: Backend unavailable, using mock malcodes data');
+      return MOCK_MALCODES;
+    }
+
     try {
-      console.log('MetadataService: Getting all malcodes...');
       const response = await this.fetchWithErrorHandling(`${API_BASE_URL}/metadata/malcodes`);
       
       if (response && response.malcodes) {
@@ -330,19 +518,20 @@ class MetadataService {
         return [];
       }
     } catch (error) {
-      if (error instanceof Error && error.message === 'BACKEND_UNAVAILABLE') {
-        console.log('MetadataService: Using mock malcodes data');
-        return MOCK_MALCODES;
-      }
-      console.error('MetadataService: Error getting malcodes:', error);
-      throw error;
+      console.log('MetadataService: Falling back to mock malcodes data');
+      return MOCK_MALCODES;
     }
   }
 
   async getTablesByMalcode(malcode: string): Promise<TableMetadata[]> {
+    console.log(`MetadataService: Getting tables for malcode: ${malcode}`);
+    
+    if (!backendAvailable) {
+      console.log(`MetadataService: Using mock tables data for malcode: ${malcode}`);
+      return MOCK_TABLES[malcode] || [];
+    }
+
     try {
-      console.log(`MetadataService: Getting tables for malcode: ${malcode}`);
-      
       // First get the malcode ID by searching through all malcodes
       const malcodesResponse = await this.fetchWithErrorHandling(`${API_BASE_URL}/metadata/malcodes`);
       const malcodeObj = malcodesResponse?.malcodes?.find((m: MalcodeMetadata) => m.malcode === malcode);
@@ -365,19 +554,20 @@ class MetadataService {
         return [];
       }
     } catch (error) {
-      if (error instanceof Error && error.message === 'BACKEND_UNAVAILABLE') {
-        console.log(`MetadataService: Using mock tables data for malcode: ${malcode}`);
-        return MOCK_TABLES[malcode] || [];
-      }
-      console.error(`MetadataService: Error getting tables for malcode ${malcode}:`, error);
-      throw error;
+      console.log(`MetadataService: Using mock tables data for malcode: ${malcode}`);
+      return MOCK_TABLES[malcode] || [];
     }
   }
 
   async getColumnsByTable(malcode: string, tableName: string): Promise<ColumnMetadata[]> {
+    console.log(`MetadataService: Getting columns for malcode: ${malcode}, table: ${tableName}`);
+    
+    if (!backendAvailable) {
+      console.log(`MetadataService: Using mock columns data for table: ${tableName}`);
+      return MOCK_COLUMNS[tableName] || [];
+    }
+
     try {
-      console.log(`MetadataService: Getting columns for malcode: ${malcode}, table: ${tableName}`);
-      
       // First get all malcodes to find the malcode ID
       const malcodesResponse = await this.fetchWithErrorHandling(`${API_BASE_URL}/metadata/malcodes`);
       const malcodeObj = malcodesResponse?.malcodes?.find((m: MalcodeMetadata) => m.malcode === malcode);
@@ -409,18 +599,20 @@ class MetadataService {
         return [];
       }
     } catch (error) {
-      if (error instanceof Error && error.message === 'BACKEND_UNAVAILABLE') {
-        console.log(`MetadataService: Using mock columns data for table: ${tableName}`);
-        return MOCK_COLUMNS[tableName] || [];
-      }
-      console.error(`MetadataService: Error getting columns for table ${tableName}:`, error);
-      throw error;
+      console.log(`MetadataService: Using mock columns data for table: ${tableName}`);
+      return MOCK_COLUMNS[tableName] || [];
     }
   }
 
   async searchMetadata(searchTerm: string): Promise<SearchResult[]> {
+    console.log(`MetadataService: Searching metadata for term: ${searchTerm}`);
+    
+    if (!backendAvailable) {
+      console.log(`MetadataService: Using mock search for term: ${searchTerm}`);
+      return this.performMockSearch(searchTerm);
+    }
+
     try {
-      console.log(`MetadataService: Searching metadata for term: ${searchTerm}`);
       const response = await this.fetchWithErrorHandling(`${API_BASE_URL}/metadata/search?term=${encodeURIComponent(searchTerm)}`);
       
       if (response && response.results) {
@@ -431,60 +623,60 @@ class MetadataService {
         return [];
       }
     } catch (error) {
-      if (error instanceof Error && error.message === 'BACKEND_UNAVAILABLE') {
-        console.log(`MetadataService: Using mock search for term: ${searchTerm}`);
-        const mockResults: SearchResult[] = [];
+      console.log(`MetadataService: Using mock search for term: ${searchTerm}`);
+      return this.performMockSearch(searchTerm);
+    }
+  }
+
+  private performMockSearch(searchTerm: string): SearchResult[] {
+    const mockResults: SearchResult[] = [];
+    
+    // Search through mock data
+    MOCK_MALCODES.forEach(malcode => {
+      if (malcode.malcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          malcode.business_description.toLowerCase().includes(searchTerm.toLowerCase())) {
+        mockResults.push({
+          id: malcode.id,
+          type: 'malcode',
+          malcode: malcode.malcode,
+          business_description: malcode.business_description
+        });
+      }
+    });
+    
+    // Search tables and columns
+    Object.entries(MOCK_TABLES).forEach(([malcode, tables]) => {
+      tables.forEach(table => {
+        if (table.table_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            table.business_description.toLowerCase().includes(searchTerm.toLowerCase())) {
+          mockResults.push({
+            id: table.id,
+            type: 'table',
+            malcode: malcode,
+            table_name: table.table_name,
+            business_description: table.business_description
+          });
+        }
         
-        // Search through mock data
-        MOCK_MALCODES.forEach(malcode => {
-          if (malcode.malcode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              malcode.business_description.toLowerCase().includes(searchTerm.toLowerCase())) {
+        const columns = MOCK_COLUMNS[table.table_name] || [];
+        columns.forEach(column => {
+          if (column.column_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              column.business_description.toLowerCase().includes(searchTerm.toLowerCase())) {
             mockResults.push({
-              id: malcode.id,
-              type: 'malcode',
-              malcode: malcode.malcode,
-              business_description: malcode.business_description
+              id: column.id,
+              type: 'column',
+              malcode: malcode,
+              table_name: table.table_name,
+              column_name: column.column_name,
+              business_description: column.business_description,
+              data_type: column.data_type
             });
           }
         });
-        
-        // Search tables and columns
-        Object.entries(MOCK_TABLES).forEach(([malcode, tables]) => {
-          tables.forEach(table => {
-            if (table.table_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                table.business_description.toLowerCase().includes(searchTerm.toLowerCase())) {
-              mockResults.push({
-                id: table.id,
-                type: 'table',
-                malcode: malcode,
-                table_name: table.table_name,
-                business_description: table.business_description
-              });
-            }
-            
-            const columns = MOCK_COLUMNS[table.table_name] || [];
-            columns.forEach(column => {
-              if (column.column_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  column.business_description.toLowerCase().includes(searchTerm.toLowerCase())) {
-                mockResults.push({
-                  id: column.id,
-                  type: 'column',
-                  malcode: malcode,
-                  table_name: table.table_name,
-                  column_name: column.column_name,
-                  business_description: column.business_description,
-                  data_type: column.data_type
-                });
-              }
-            });
-          });
-        });
-        
-        return mockResults;
-      }
-      console.error('MetadataService: Error searching metadata:', error);
-      throw error;
-    }
+      });
+    });
+    
+    return mockResults;
   }
 }
 
